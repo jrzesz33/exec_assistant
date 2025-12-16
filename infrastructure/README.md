@@ -59,6 +59,10 @@ pulumi config set exec-assistant:environment dev
 # Set Slack secrets (required for Slack bot)
 pulumi config set --secret exec-assistant:slack_signing_secret your-signing-secret-here
 pulumi config set --secret exec-assistant:slack_bot_token xoxb-your-bot-token-here
+
+pulumi config set --secret exec-assistant:google_oauth_client_id clientid
+pulumi config set --secret exec-assistant:google_oauth_client_secret clientsecret
+
 ```
 
 ### 4. Install Python Dependencies
