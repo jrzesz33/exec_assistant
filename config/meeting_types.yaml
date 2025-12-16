@@ -1,0 +1,481 @@
+# Meeting Types Configuration
+# Defines prep questions, context requirements, and templates for each meeting type
+
+leadership_team:
+  name: "Leadership Team Meeting"
+  description: "Weekly sync with senior infrastructure leadership"
+
+  # Prep questions to ask user
+  prep_questions:
+    - "What are the top 3 priorities you want to discuss?"
+    - "Are there any escalations or blockers the team should know about?"
+    - "Any updates on Big Rocks initiatives you want to share?"
+    - "What decisions need to be made in this meeting?"
+
+  # Context to gather from other agents
+  required_context:
+    - budget_manager  # Budget status and variances
+    - big_rocks_manager  # Strategic initiative status
+    - incident_manager  # Recent incidents and reliability metrics
+    - staffing_manager  # Headcount and hiring updates
+    - decision_tracker  # Pending decisions
+
+  # Agenda template
+  agenda_template: |
+    # Leadership Team Meeting Agenda
+
+    **Date**: {meeting_date}
+    **Duration**: {duration}
+
+    ## 1. Opening & Updates (10 min)
+    - Team announcements
+    - Quick wins from the week
+
+    ## 2. Budget Review (15 min)
+    {budget_context}
+
+    ## 3. Big Rocks Progress (20 min)
+    {big_rocks_context}
+
+    ## 4. Reliability & Incidents (15 min)
+    {incidents_context}
+
+    ## 5. Staffing & Hiring (10 min)
+    {staffing_context}
+
+    ## 6. Decisions & Action Items (10 min)
+    - Open decisions requiring input
+    - Action item review
+
+    ## 7. Closing (5 min)
+    - Next week's priorities
+
+  # Note template
+  note_template: |
+    # Leadership Team Meeting Notes
+
+    **Date**: {meeting_date}
+    **Attendees**: {attendees}
+
+    ## Key Decisions
+    -
+
+    ## Discussion Points
+    ### Budget
+    -
+
+    ### Big Rocks
+    -
+
+    ### Reliability
+    -
+
+    ### Staffing
+    -
+
+    ## Action Items
+    - [ ] {action} - Owner: {owner} - Due: {due_date}
+
+one_on_one:
+  name: "One-on-One Meeting"
+  description: "Individual check-in with direct report or manager"
+
+  prep_questions:
+    - "What do you want to focus on in this 1-1?"
+    - "Any concerns or challenges you want to discuss?"
+    - "Career development topics to cover?"
+    - "Feedback to give or request?"
+
+  required_context:
+    - hr_manager  # Previous 1-1 notes, goals, performance
+
+  agenda_template: |
+    # 1-1 Agenda
+
+    **Date**: {meeting_date}
+    **Participants**: {attendees}
+
+    ## 1. Check-in (5 min)
+    - How are you doing?
+    - Work-life balance
+
+    ## 2. Current Work Discussion (15 min)
+    - Projects and priorities
+    - Blockers or challenges
+    - Wins and progress
+
+    ## 3. Feedback Exchange (10 min)
+    - Feedback to share
+    - Feedback to request
+
+    ## 4. Career & Development (10 min)
+    - Goals and growth areas
+    - Learning opportunities
+
+    ## 5. Action Items & Next Steps (5 min)
+
+  note_template: |
+    # 1-1 Notes
+
+    **Date**: {meeting_date}
+    **Participants**: {attendees}
+
+    ## Discussion Summary
+    -
+
+    ## Key Takeaways
+    -
+
+    ## Action Items
+    - [ ]
+
+    ## Follow-up for Next Time
+    -
+
+reliability_review:
+  name: "Reliability Review / Post-Mortem"
+  description: "Review of incident and reliability metrics"
+
+  prep_questions:
+    - "Which incidents should we review in detail?"
+    - "Are there any patterns or trends you've noticed?"
+    - "What preventive measures should we discuss?"
+
+  required_context:
+    - incident_manager  # Recent incidents, severity, MTTR
+    - decision_tracker  # Previous action items from incidents
+
+  agenda_template: |
+    # Reliability Review Agenda
+
+    **Date**: {meeting_date}
+
+    ## 1. Metrics Overview (10 min)
+    {incidents_context}
+    - Incident count and severity
+    - MTTR trends
+    - SLO compliance
+
+    ## 2. Incident Deep Dives (30 min)
+    For each major incident:
+    - What happened?
+    - Root cause
+    - Impact
+    - Remediation actions
+
+    ## 3. Preventive Measures (15 min)
+    - Action items from previous incidents
+    - Systemic improvements
+    - Process changes
+
+    ## 4. Action Items (5 min)
+
+  note_template: |
+    # Reliability Review Notes
+
+    **Date**: {meeting_date}
+
+    ## Incidents Reviewed
+    ### Incident: {incident_id}
+    - **Severity**: {severity}
+    - **Impact**: {impact}
+    - **Root Cause**: {root_cause}
+    - **Action Items**:
+      - [ ]
+
+    ## Systemic Issues Identified
+    -
+
+    ## Action Items
+    - [ ] {action} - Owner: {owner} - Due: {due_date}
+
+qbr:
+  name: "Quarterly Business Review"
+  description: "Quarterly review of business metrics and strategic progress"
+
+  prep_questions:
+    - "What are the key achievements this quarter?"
+    - "Which metrics or KPIs should we highlight?"
+    - "What challenges or risks need discussion?"
+    - "What are the priorities for next quarter?"
+
+  required_context:
+    - budget_manager  # Quarterly spend vs plan
+    - big_rocks_manager  # Q progress on strategic initiatives
+    - incident_manager  # Quarterly reliability trends
+    - staffing_manager  # Headcount changes
+    - decision_tracker  # Major decisions made
+
+  agenda_template: |
+    # Quarterly Business Review
+
+    **Quarter**: {quarter}
+    **Date**: {meeting_date}
+
+    ## 1. Executive Summary (10 min)
+    - Quarter in review
+    - Key achievements
+
+    ## 2. Financial Performance (20 min)
+    {budget_context}
+    - Budget vs actual
+    - Cost optimization wins
+    - Forecast for next quarter
+
+    ## 3. Strategic Initiatives (Big Rocks) (30 min)
+    {big_rocks_context}
+    - Progress on each initiative
+    - Roadblocks and mitigations
+    - Q priorities
+
+    ## 4. Operational Excellence (20 min)
+    {incidents_context}
+    - Reliability metrics
+    - Incident trends
+    - SLO performance
+
+    ## 5. People & Organization (15 min)
+    {staffing_context}
+    - Headcount evolution
+    - Key hires
+    - Organizational changes
+
+    ## 6. Looking Ahead (15 min)
+    - Next quarter priorities
+    - Risks and opportunities
+    - Resource needs
+
+    ## 7. Q&A (10 min)
+
+  note_template: |
+    # QBR Notes - Q{quarter}
+
+    **Date**: {meeting_date}
+    **Attendees**: {attendees}
+
+    ## Key Highlights
+    -
+
+    ## Financial Summary
+    -
+
+    ## Strategic Progress
+    -
+
+    ## Operational Metrics
+    -
+
+    ## Action Items
+    - [ ]
+
+executive_staff:
+  name: "Executive Staff Meeting"
+  description: "CIO staff meeting with exec leadership"
+
+  prep_questions:
+    - "What updates should you provide to the CIO?"
+    - "Any cross-functional dependencies to discuss?"
+    - "What support or decisions do you need from leadership?"
+
+  required_context:
+    - budget_manager
+    - big_rocks_manager
+    - incident_manager
+    - staffing_manager
+    - decision_tracker
+
+  agenda_template: |
+    # Executive Staff Meeting Agenda
+
+    **Date**: {meeting_date}
+
+    ## 1. Opening & Priorities (5 min)
+
+    ## 2. Infrastructure Update (15 min)
+    - Budget status: {budget_context}
+    - Key initiatives: {big_rocks_context}
+    - Reliability: {incidents_context}
+
+    ## 3. Cross-Functional Topics (20 min)
+    - Dependencies and blockers
+    - Collaboration needs
+
+    ## 4. Strategic Discussions (15 min)
+    - Long-term planning
+    - Organizational topics
+
+    ## 5. Decisions & Action Items (5 min)
+
+  note_template: |
+    # Executive Staff Meeting Notes
+
+    **Date**: {meeting_date}
+
+    ## Infrastructure Update
+    -
+
+    ## Key Discussions
+    -
+
+    ## Decisions
+    -
+
+    ## Action Items
+    - [ ]
+
+interview_debrief:
+  name: "Interview Debrief"
+  description: "Discussion about candidate after interview"
+
+  prep_questions:
+    - "What role is this candidate interviewing for?"
+    - "What aspects of the interview do you want to focus on?"
+
+  required_context:
+    - staffing_manager  # Open roles, hiring priorities
+
+  agenda_template: |
+    # Interview Debrief
+
+    **Candidate**: {candidate_name}
+    **Role**: {role}
+    **Date**: {meeting_date}
+
+    ## 1. Overall Impressions (5 min)
+    - Each interviewer shares quick impression
+
+    ## 2. Technical Assessment (10 min)
+    - Technical skills
+    - Problem-solving approach
+    - Depth of knowledge
+
+    ## 3. Cultural Fit (5 min)
+    - Values alignment
+    - Team dynamics
+    - Communication style
+
+    ## 4. Decision (5 min)
+    - Hire / No Hire / Maybe
+    - Next steps
+
+  note_template: |
+    # Interview Debrief Notes
+
+    **Candidate**: {candidate_name}
+    **Role**: {role}
+    **Date**: {meeting_date}
+
+    ## Feedback Summary
+    -
+
+    ## Strengths
+    -
+
+    ## Concerns
+    -
+
+    ## Decision
+    - [ ] Move forward
+    - [ ] Pass
+    - [ ] Additional interview needed
+
+vendor_meeting:
+  name: "Vendor Meeting"
+  description: "Meeting with external vendor or partner"
+
+  prep_questions:
+    - "Which vendor is this meeting with?"
+    - "What is the purpose of this meeting?"
+    - "What outcomes are you hoping for?"
+
+  required_context:
+    - budget_manager  # Vendor spend, contract status
+    - decision_tracker  # Previous vendor decisions
+
+  agenda_template: |
+    # Vendor Meeting Agenda
+
+    **Vendor**: {vendor_name}
+    **Date**: {meeting_date}
+
+    ## 1. Introductions & Context (5 min)
+
+    ## 2. Current Partnership Review (10 min)
+    - Usage and adoption
+    - Satisfaction and concerns
+
+    ## 3. Discussion Topics (20 min)
+    {user_topics}
+
+    ## 4. Pricing & Contracts (10 min)
+    - Renewal discussions
+    - Pricing considerations
+
+    ## 5. Action Items & Next Steps (5 min)
+
+  note_template: |
+    # Vendor Meeting Notes
+
+    **Vendor**: {vendor_name}
+    **Date**: {meeting_date}
+
+    ## Discussion Summary
+    -
+
+    ## Key Points
+    -
+
+    ## Action Items
+    - [ ] {action} - Owner: {owner} - Due: {due_date}
+
+    ## Next Steps
+    -
+
+# Default/Unknown meeting type
+unknown:
+  name: "General Meeting"
+  description: "Meeting with unclassified type"
+
+  prep_questions:
+    - "What is this meeting about?"
+    - "Who are the key participants?"
+    - "What do you want to accomplish?"
+    - "What materials or information should you prepare?"
+
+  required_context: []  # No specific context
+
+  agenda_template: |
+    # Meeting Agenda
+
+    **Date**: {meeting_date}
+    **Duration**: {duration}
+
+    ## Topics
+    {user_topics}
+
+    ## Discussion Points
+    -
+
+    ## Decisions Needed
+    -
+
+    ## Action Items
+    -
+
+  note_template: |
+    # Meeting Notes
+
+    **Date**: {meeting_date}
+    **Attendees**: {attendees}
+
+    ## Discussion
+    -
+
+    ## Key Points
+    -
+
+    ## Action Items
+    - [ ]
+
+    ## Follow-up
+    -

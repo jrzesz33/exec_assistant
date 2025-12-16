@@ -1,0 +1,200 @@
+# Agent Configuration
+# Settings for all agents in the Executive Assistant system
+
+# Orchestrator Agent
+orchestrator:
+  enabled: true
+  model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  temperature: 0.7
+  max_tokens: 4096
+
+# Meeting Coordinator Agent
+meeting_coordinator:
+  enabled: true
+  model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  temperature: 0.7
+  max_tokens: 8192
+
+  # Calendar monitoring
+  calendar_check_schedule: "0 */2 * * *"  # Every 2 hours (cron expression)
+  calendar_lookahead_days: 14  # How many days ahead to fetch meetings
+
+  # Prep timing (hours before meeting to trigger prep)
+  prep_timing:
+    leadership_team: 24
+    one_on_one: 12
+    reliability_review: 48
+    qbr: 72
+    executive_staff: 48
+    interview_debrief: 4
+    vendor_meeting: 24
+    unknown: 24
+
+  # Notification channels (priority order)
+  notification_channels:
+    - slack
+    - sms    # if enabled
+    - email  # fallback
+
+  # Session timeout
+  chat_session_timeout_minutes: 30
+
+  # Meeting type detection
+  # Keywords and rules for classifying meetings
+  meeting_type_detection:
+    leadership_team:
+      keywords:
+        - "leadership team"
+        - "leadership sync"
+        - "LT meeting"
+        - "senior leadership"
+      min_attendees: 5
+      max_attendees: 20
+
+    one_on_one:
+      keywords:
+        - "1-1"
+        - "1:1"
+        - "one on one"
+        - "1 on 1"
+        - "catch up"
+      min_attendees: 2
+      max_attendees: 2
+
+    reliability_review:
+      keywords:
+        - "reliability"
+        - "post-mortem"
+        - "postmortem"
+        - "incident review"
+        - "RCA"
+        - "root cause"
+      min_attendees: 3
+
+    qbr:
+      keywords:
+        - "QBR"
+        - "quarterly business review"
+        - "quarterly review"
+        - "Q1 review"
+        - "Q2 review"
+        - "Q3 review"
+        - "Q4 review"
+      min_attendees: 5
+
+    executive_staff:
+      keywords:
+        - "executive staff"
+        - "exec staff"
+        - "e-staff"
+        - "CIO staff"
+      min_attendees: 6
+
+    interview_debrief:
+      keywords:
+        - "interview debrief"
+        - "candidate review"
+        - "hiring discussion"
+      min_attendees: 2
+      max_attendees: 6
+
+    vendor_meeting:
+      keywords:
+        - "vendor"
+        - "partner meeting"
+        - "supplier"
+      min_attendees: 2
+
+# Budget Manager Agent
+budget_manager:
+  enabled: true  # Phase 1: placeholder
+  model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  temperature: 0.3  # More deterministic for financial data
+  max_tokens: 4096
+
+  # Budget tracking settings
+  variance_threshold_warning: 0.10  # 10% variance triggers warning
+  variance_threshold_critical: 0.20  # 20% variance triggers critical alert
+
+# Big Rocks Manager Agent
+big_rocks_manager:
+  enabled: true  # Phase 1: placeholder
+  model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  temperature: 0.5
+  max_tokens: 4096
+
+  # Strategic priority tracking
+  update_frequency_days: 7  # Weekly updates
+
+# HR Manager Agent
+hr_manager:
+  enabled: false  # Phase 2+
+  model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  temperature: 0.7
+  max_tokens: 4096
+
+  # 1-1 settings
+  one_on_one_frequency_days: 14  # Bi-weekly
+
+# Incident Manager Agent
+incident_manager:
+  enabled: true  # Phase 1: placeholder
+  model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  temperature: 0.5
+  max_tokens: 4096
+
+  # Incident tracking
+  lookback_days: 30  # How far back to look for incidents
+  severity_levels:
+    - SEV1
+    - SEV2
+    - SEV3
+
+# Staffing Manager Agent
+staffing_manager:
+  enabled: true  # Phase 1: placeholder
+  model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  temperature: 0.5
+  max_tokens: 4096
+
+# Decision Tracker Agent
+decision_tracker:
+  enabled: true  # Phase 1: placeholder
+  model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  temperature: 0.5
+  max_tokens: 4096
+
+  # Decision tracking
+  pending_decision_reminder_days: 7
+
+# Routine Manager Agent
+routine_manager:
+  enabled: false  # Phase 2+
+  model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  temperature: 0.7
+  max_tokens: 4096
+
+# Document Manager Agent
+document_manager:
+  enabled: false  # Phase 2+
+  model: "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  temperature: 0.5
+  max_tokens: 4096
+
+# Global settings
+global:
+  # Logging
+  log_level: "INFO"
+  log_format: "json"
+
+  # Rate limiting
+  max_requests_per_minute: 60
+  max_concurrent_sessions: 10
+
+  # Retry settings
+  max_retries: 3
+  retry_backoff_seconds: 2
+
+  # Session settings
+  session_storage: "s3"  # or "file" for local dev
+  session_expiry_hours: 24

@@ -1,0 +1,35 @@
+name: exec-assistant
+description: Executive Assistant multi-agent system infrastructure
+runtime: python
+
+config:
+  # AWS region should be set via: pulumi config set aws:region us-east-1
+  # Non-namespaced configs cannot have defaults in Pulumi.yaml
+
+  exec-assistant:environment:
+    description: Environment (dev, staging, prod)
+    value: dev
+
+  # Slack integration (optional - for future Slack bot support)
+  exec-assistant:slack_signing_secret:
+    description: Slack app signing secret (optional)
+    secret: true
+    default: "test"
+
+  exec-assistant:slack_bot_token:
+    description: Slack bot token (optional)
+    secret: true
+    default: "test"
+
+  # Google OAuth (required for web chat)
+  exec-assistant:google_oauth_client_id:
+    description: Google OAuth client ID (required for web auth)
+
+  exec-assistant:google_oauth_client_secret:
+    description: Google OAuth client secret (required for web auth)
+    secret: true
+
+  exec-assistant:jwt_secret_key:
+    description: JWT signing secret (will be auto-generated if not provided)
+    secret: true
+    default: ""
