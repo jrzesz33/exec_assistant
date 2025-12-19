@@ -218,18 +218,16 @@ async def run_meeting_coordinator(
         # Create agent instance with session-specific session manager
         agent = create_agent(session_id)
 
-        # Execute agent with user message
-        response = await agent.run(
-            user_message=message,
-        )
+        # Execute agent with user message (using Strands SDK async invocation)
+        response = await agent.invoke_async(message)
 
         logger.info(
             "session_id=<%s>, response_length=<%d> | agent response generated",
             session_id,
-            len(response.content),
+            len(response.message.content[0].text),
         )
 
-        return response.content
+        return response.message.content[0].text
 
     except Exception as e:
         logger.error(

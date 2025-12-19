@@ -728,7 +728,7 @@ def invoke_agent_from_slack(
         session_id = f"slack-{user_id}-{generate_id()}"
 
     # Invoke agent
-    result = agent.run(
+    result = agent.invoke_async(
         prompt=prompt,
         session_id=session_id,
         user_id=user_id

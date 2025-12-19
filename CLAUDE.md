@@ -311,7 +311,7 @@ def create_session_manager(session_id: str):
 
 # CORRECT: Create agent per-request
 agent = create_agent(session_id)
-response = await agent.run(user_message=message)
+response = await agent.invoke_async(message)
 ```
 
 **Common Testing Issues:**

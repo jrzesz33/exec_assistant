@@ -41,7 +41,7 @@ The system now supports two modes:
 
    # NEW (CORRECT): Per-request agent
    agent = create_agent(session_id)  # ✅ Creates session manager with session_id
-   response = await agent.run(user_message=message)
+   response = await agent.invoke_async(message)
    ```
 
 3. **Lazy AWS Client Initialization**:
