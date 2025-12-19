@@ -59,7 +59,7 @@ pulumi config set exec-assistant:environment dev
 # Set Slack secrets (required for Slack bot)
 pulumi config set --secret exec-assistant:slack_signing_secret your-signing-secret-here
 pulumi config set --secret exec-assistant:slack_bot_token xoxb-your-bot-token-here
-
+export PATH="$PATH:/home/vscode/.pulumi/bin"
 pulumi config set --secret exec-assistant:google_oauth_client_id clientid
 pulumi config set --secret exec-assistant:google_oauth_client_secret clientsecret
 
@@ -85,15 +85,115 @@ Expected resources:
 - 2 S3 buckets (documents, sessions)
 - 2 S3 bucket public access blocks
 
-### 6. Deploy
+### 6. Deploy Phase 1 (Storage Foundation)
 
-Deploy the infrastructure:
+Deploy the Phase 1 infrastructure (KMS, DynamoDB, S3):
 
 ```bash
 pulumi up
 ```
 
 Review the changes and confirm with `yes`.
+
+### 7. Deploy Phase 1.5 (Authentication & Chat UI)
+
+Phase 1.5 adds authentication Lambda functions, API Gateway, and a web-based chat interface.
+
+#### Prerequisites for Phase 1.5
+
+1. **Google OAuth Credentials**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select existing project
+   - Enable Google+ API
+   - Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
+   - Application type: "Web application"
+   - Add authorized redirect URI: `https://YOUR_API_GATEWAY_URL/auth/callback` (you'll update this after first deploy)
+   - Save the Client ID and Client Secret
+
+2. **JWT Secret Key**:
+   - Generate a secure random key:
+   ```bash
+   openssl rand -base64 32
+   ```
+
+#### Phase 1.5 Configuration
+
+Set the required configuration values:
+
+```bash
+# Enable Phase 1.5 deployment
+pulumi config set exec-assistant:enable_phase_1_5 true
+
+# Set Google OAuth credentials
+pulumi config set --secret exec-assistant:google_oauth_client_id YOUR_CLIENT_ID
+pulumi config set --secret exec-assistant:google_oauth_client_secret YOUR_CLIENT_SECRET
+
+# Generate and set JWT secret key
+JWT_SECRET=$(openssl rand -base64 32)
+pulumi config set --secret exec-assistant:jwt_secret_key "$JWT_SECRET"
+
+# Set temporary redirect URI (will update after API Gateway is created)
+pulumi config set exec-assistant:google_oauth_redirect_uri https://placeholder.com/auth/callback
+pulumi config set exec-assistant:frontend_url https://placeholder.com
+```
+
+#### Deploy Phase 1.5
+
+```bash
+pulumi up
+```
+
+After deployment, you'll get outputs including:
+- `api_endpoint`: Your API Gateway endpoint URL
+- `ui_website_url`: Your S3-hosted UI URL
+
+#### Update OAuth Redirect URI
+
+After getting the `api_endpoint` from Pulumi outputs:
+
+1. **Update Google OAuth settings**:
+   - Go back to Google Cloud Console → Credentials
+   - Edit your OAuth 2.0 Client ID
+   - Add authorized redirect URI: `https://YOUR_API_GATEWAY_ID.execute-api.REGION.amazonaws.com/auth/callback`
+
+2. **Update Pulumi config**:
+   ```bash
+   # Get the API endpoint from Pulumi output
+   API_ENDPOINT=$(pulumi stack output api_endpoint)
+
+   # Update config
+   pulumi config set exec-assistant:google_oauth_redirect_uri "${API_ENDPOINT}/auth/callback"
+   pulumi config set exec-assistant:frontend_url "$(pulumi stack output ui_website_url)"
+
+   # Redeploy to update Lambda environment variables
+   pulumi up
+   ```
+
+#### Test Phase 1.5
+
+1. Open the UI URL from `pulumi stack output ui_website_url`
+2. Click "Sign in with Google"
+3. Authenticate with your Google account
+4. You should be redirected back to the chat interface
+5. Try sending a test message (agent integration coming in Phase 2!)
+
+#### Phase 1.5 Resources Created
+
+- **Lambda Functions**:
+  - `exec-assistant-auth-{environment}`: Handles all authentication endpoints
+
+- **API Gateway**:
+  - HTTP API with routes:
+    - `GET /auth/login`: Initiates Google OAuth flow
+    - `GET /auth/callback`: Handles OAuth callback
+    - `POST /auth/refresh`: Refreshes access tokens
+    - `GET /auth/me`: Returns current user info
+
+- **S3 Bucket**:
+  - `exec-assistant-ui-{environment}`: Hosts static website with chat interface
+
+- **IAM Roles & Policies**:
+  - Lambda execution role with DynamoDB and KMS permissions
 
 ## Managing Stacks
 

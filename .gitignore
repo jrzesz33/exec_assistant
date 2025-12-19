@@ -26,6 +26,9 @@ venv/
 env/
 ENV/
 .venv
+infrastructure/__pycache__/
+infrastructure/.lambda_build/
+infrastructure/.lambda_build_agent/
 
 # IDEs
 .vscode/
@@ -63,8 +66,10 @@ temp/
 
 # Session data (local development)
 sessions/
+.sessions/
 *.session
 
 # DynamoDB local
 dynamodb-local/
 .env.example
+infrastructure/.lambda_build/

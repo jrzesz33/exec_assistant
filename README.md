@@ -1,10 +1,10 @@
 # Executive Assistant Multi-Agent System
 
-An intelligent multi-agent system designed to help healthcare infrastructure and operations executives manage their organization effectively through automated workflows, intelligent reminders, and decision support.
+An intelligent multi-agent system designed to help executives manage their organization effectively through automated workflows, intelligent reminders, and decision support.
 
 ## Overview
 
-This system leverages AI agents to handle the complex operational requirements of running a healthcare infrastructure organization, including budget management, strategic planning (Big Rocks), HR activities, incident management, and decision tracking.
+This system leverages AI agents to handle the complex operational requirements of running an organization, including budget management, strategic planning (Big Rocks), HR activities, incident management, and decision tracking.
 
 ## Technology Stack
 
@@ -81,11 +81,11 @@ The system consists of specialized agents that work together to manage different
 ### 2. Big Rocks Manager Agent
 **Purpose**: Track strategic priorities and ensure progress on organizational goals
 
-**Example Big Rocks for Healthcare Infrastructure**:
+**Example Big Rocks**:
 - **Q1 2025**: Migrate 40% of legacy workloads to cloud-native architecture
-- **Q2 2025**: Achieve 99.99% uptime for patient-facing systems
+- **Q2 2025**: Achieve 99.99% uptime for critical systems
 - **H1 2025**: Reduce mean time to recovery (MTTR) by 50%
-- **2025**: Complete HITRUST certification for all production environments
+- **2025**: Complete security compliance certifications
 - **2025**: Implement zero-trust security architecture
 
 **Activities**:
@@ -708,7 +708,7 @@ TWILIO_PHONE_NUMBER=+1234567890
 USER_PHONE_NUMBER=+1234567890
 
 SENDGRID_API_KEY=...
-USER_EMAIL=executive@healthcare.com
+USER_EMAIL=executive@company.com
 
 # Chat Session Management
 CHAT_SESSION_TIMEOUT=3600  # 1 hour session timeout
@@ -802,12 +802,12 @@ meeting_coordinator:
 
 ## Security & Compliance
 
-### Healthcare-Specific Considerations
-- HIPAA compliance for any PHI handling
-- HITRUST alignment
-- Encryption at rest and in transit
+### Security Considerations
+- Data encryption at rest and in transit
 - Audit logging for all agent actions
 - Role-based access control (RBAC)
+- Secure credential management
+- Compliance with organizational security policies
 
 ### AWS Security
 - All Lambda functions in private subnets
@@ -849,4 +849,4 @@ meeting_coordinator:
 
 ---
 
-**Note**: This system handles sensitive organizational data. Ensure all security best practices are followed and compliance requirements are met before deployment in a production healthcare environment.
+**Note**: This system handles sensitive organizational data. Ensure all security best practices are followed and compliance requirements are met before deployment in a production environment.

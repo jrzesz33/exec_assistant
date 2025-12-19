@@ -1,15 +1,29 @@
 """Main Pulumi program for Executive Assistant infrastructure.
 
 Deploys all AWS resources for the Executive Assistant system:
-- KMS keys for encryption
-- DynamoDB tables for data storage
-- S3 buckets for documents and sessions
-- (Future phases: Lambda functions, API Gateway, Step Functions, EventBridge)
+- Phase 1: KMS keys, DynamoDB tables, S3 buckets (storage foundation)
+- Phase 1.5: Lambda functions, API Gateway, authentication, chat UI
+- Future phases: Step Functions, EventBridge, full agent deployment
 """
 
 import pulumi
 
 from storage import create_dynamodb_tables, create_kms_key, create_s3_buckets
+
+# Phase 1.5+ imports (optional - only if enabled in config)
+try:
+    from api import (
+        create_agent_lambda,
+        create_api_gateway,
+        create_auth_lambda,
+        create_lambda_policy,
+        create_lambda_role,
+        create_ui_bucket,
+    )
+
+    PHASE_1_5_AVAILABLE = True
+except ImportError:
+    PHASE_1_5_AVAILABLE = False
 
 # Get configuration
 config = pulumi.Config()
@@ -49,10 +63,117 @@ pulumi.export("documents_bucket_arn", buckets["documents"].arn)
 pulumi.export("sessions_bucket_name", buckets["sessions"].bucket)
 pulumi.export("sessions_bucket_arn", buckets["sessions"].arn)
 
+# Phase 1.5: Authentication and Chat UI (optional - enable via config)
+enable_phase_1_5 = config.get_bool("enable_phase_1_5") or False
+
+if enable_phase_1_5 and PHASE_1_5_AVAILABLE:
+    pulumi.log.info("Deploying Phase 1.5: Authentication and Chat UI")
+
+    # Create Lambda IAM role
+    lambda_role = create_lambda_role(environment)
+    pulumi.export("lambda_role_arn", lambda_role.arn)
+
+    # Check if Phase 2 is enabled to determine Lambda policy permissions
+    enable_phase_2 = config.get_bool("enable_phase_2") or False
+
+    # Create Lambda policy for DynamoDB and KMS access (+ S3 and Bedrock if Phase 2)
+    create_lambda_policy(
+        environment,
+        lambda_role,
+        tables,
+        kms_key,
+        sessions_bucket=buckets["sessions"] if enable_phase_2 else None,
+    )
+
+    # Create authentication Lambda function
+    auth_lambda = create_auth_lambda(environment, lambda_role, tables["users"], config)
+    pulumi.export("auth_lambda_arn", auth_lambda.arn)
+    pulumi.export("auth_lambda_name", auth_lambda.name)
+
+    # Phase 2: Agent Lambda (optional)
+    agent_lambda = None
+    if enable_phase_2:
+        pulumi.log.info("Deploying Phase 2: Meeting Coordinator Agent with AWS Nova")
+
+        # Create agent Lambda
+        agent_lambda = create_agent_lambda(
+            environment,
+            lambda_role,
+            tables["chat_sessions"],
+            buckets["sessions"],
+            config,
+        )
+        pulumi.export("agent_lambda_arn", agent_lambda.arn)
+        pulumi.export("agent_lambda_name", agent_lambda.name)
+
+        pulumi.log.info("Phase 2: Agent Lambda created")
+
+    # Create API Gateway (with agent routes if Phase 2 enabled)
+    api, api_endpoint = create_api_gateway(environment, auth_lambda, agent_lambda)
+    pulumi.export("api_id", api.id)
+    pulumi.export("api_endpoint", api_endpoint)
+
+    # Create UI bucket for static website hosting
+    ui_bucket, ui_website_url = create_ui_bucket(environment)
+    pulumi.export("ui_bucket_name", ui_bucket.bucket)
+    pulumi.export("ui_website_url", ui_website_url)
+
+    # Upload UI files to S3
+    import pulumi_aws as aws
+    from pathlib import Path
+
+    ui_dir = Path(__file__).parent.parent / "ui"
+
+    # Upload index.html
+    aws.s3.BucketObjectv2(
+        f"ui-index-{environment}",
+        bucket=ui_bucket.id,
+        key="index.html",
+        source=pulumi.FileAsset(str(ui_dir / "index.html")),
+        content_type="text/html",
+    )
+
+    # Upload app.js with API endpoint injected
+    app_js_template = (ui_dir / "app.js").read_text()
+
+    # Use .apply() to handle Pulumi Output
+    app_js_content = api_endpoint.apply(
+        lambda endpoint: app_js_template.replace("API_ENDPOINT_PLACEHOLDER", endpoint)
+    )
+
+    aws.s3.BucketObjectv2(
+        f"ui-app-js-{environment}",
+        bucket=ui_bucket.id,
+        key="app.js",
+        content=app_js_content,
+        content_type="application/javascript",
+    )
+
+    # Upload error.html
+    aws.s3.BucketObjectv2(
+        f"ui-error-{environment}",
+        bucket=ui_bucket.id,
+        key="error.html",
+        source=pulumi.FileAsset(str(ui_dir / "error.html")),
+        content_type="text/html",
+    )
+
+    # Log deployment completion
+    if enable_phase_2:
+        pulumi.log.info("Phase 2 deployment complete! Agent chat endpoint ready at /chat/send")
+    else:
+        pulumi.log.info("Phase 1.5 deployment complete! Check stack outputs for URLs.")
+        pulumi.log.info("To enable agent chat, set enable_phase_2=true in config.")
+
+elif enable_phase_1_5 and not PHASE_1_5_AVAILABLE:
+    pulumi.log.warn("Phase 1.5 enabled but api.py module not found. Skipping Phase 1.5 deployment.")
+
+else:
+    pulumi.log.info("Phase 1.5 disabled. Set enable_phase_1_5=true in config to deploy authentication and UI.")
+
 # Future phases will add:
-# - Lambda functions (agents, webhook handlers)
-# - API Gateway (for Slack webhooks)
-# - Step Functions (for meeting prep workflow)
-# - EventBridge rules (for calendar monitoring)
-# - CloudWatch alarms and dashboards
-# - VPC and networking (if needed for security)
+# - Phase 3: Step Functions for meeting prep workflow
+# - Phase 4: EventBridge rules for calendar monitoring
+# - Phase 5: Additional agents (Budget, HR, Incident managers)
+# - Phase 6: CloudWatch alarms and dashboards
+# - Phase 7: VPC and enhanced security

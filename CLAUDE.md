@@ -4,12 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an Executive Assistant multi-agent system for healthcare infrastructure and operations leadership. The system uses AI agents to manage organizational activities including budget tracking, strategic planning (Big Rocks), HR processes, incident management, meeting coordination, and decision tracking.
+This is an Executive Assistant multi-agent system for operations leadership. The system uses AI agents to manage organizational activities including budget tracking, strategic planning (Big Rocks), HR processes, incident management, meeting coordination, and decision tracking.
 
 **Tech Stack:**
 - **Agent Framework**: Strands Agent SDK (Python) - https://github.com/strands-agents/sdk-python
 - **Infrastructure**: Pulumi (AWS: Bedrock, Lambda, DynamoDB, EventBridge, S3, SNS/SQS, Step Functions)
 - **Communication**: Slack API (primary), Twilio (SMS), SendGrid/SES (email)
+
+## Development Environment
+
+**IMPORTANT: Always use the Python virtual environment for all pip commands and Python operations.**
+
+- Virtual environment location: `.venv/` (in project root)
+- Before running any pip install or Python commands, activate the venv:
+  ```bash
+  source .venv/bin/activate
+  ```
+- For Pulumi deployments from the infrastructure directory:
+  ```bash
+  source ../.venv/bin/activate  # Activate from infrastructure/ directory
+  pulumi up
+  ```
+- The virtual environment contains all project dependencies including:
+  - Pulumi and pulumi-aws for infrastructure deployment
+  - strands-sdk for agent development
+  - All application dependencies from requirements.txt
+
+**Never use `--break-system-packages` or install packages system-wide. Always use the .venv environment.**
+
+**Make sure you create a new branch when starting new plans and PR back to the main line when you have completed activities**
 
 ## Architecture
 
@@ -173,14 +196,14 @@ SLACK_USER_ID=U123456789
 # Optional: Twilio (SMS), SendGrid (email)
 ```
 
-## Healthcare Context
+## Organization Context
 
-This system runs in a **major healthcare company's infrastructure organization**. Context matters:
+This system is designed for **operations and infrastructure leadership**. Context matters:
 
 **Big Rocks Examples:**
 - "Migrate 40% of legacy workloads to cloud-native architecture"
-- "Achieve 99.99% uptime for patient-facing systems"
-- "Complete HITRUST certification for all production environments"
+- "Achieve 99.99% uptime for critical systems"
+- "Complete security compliance certifications for all production environments"
 
 **Meeting Types:**
 - Leadership Team Meetings (weekly)
@@ -189,11 +212,11 @@ This system runs in a **major healthcare company's infrastructure organization**
 - Quarterly Business Reviews (QBRs)
 - Executive Staff Meetings with CIO
 
-**Compliance:**
-- HIPAA compliance for PHI handling
-- HITRUST alignment
-- Encryption at rest/transit
+**Security & Compliance:**
+- Data encryption at rest/transit
 - Audit logging for all agent actions
+- Secure credential management
+- Role-based access control
 
 ## Integration Points
 
@@ -228,10 +251,85 @@ When implementing agents or workflows:
 
 ## Testing Strategy
 
+### Overview
 - **Unit tests**: Mock AWS services (moto), use Strands fixtures
 - **Integration tests**: Real Bedrock calls, require AWS credentials
 - **End-to-end tests**: Full workflow tests with calendar/Slack mocks
-- **Test data**: Use realistic healthcare infrastructure scenarios (incidents, budgets, org structure)
+- **Test data**: Use realistic infrastructure scenarios (incidents, budgets, org structure)
+
+### Local Development Testing (CRITICAL)
+
+**Environment Setup:**
+The project uses environment-based session management to enable efficient local testing:
+- **Local development** (`ENV=local`): Uses `FileSessionManager` with `.sessions/` directory
+- **Production** (`ENV=prod`): Uses `S3SessionManager` with S3 bucket
+- Session manager is created per-request with the specific `session_id`
+
+**Testing Workflow:**
+
+1. **Quick Mock Testing** (no AWS credentials needed):
+   ```bash
+   source .venv/bin/activate
+   export ENV=local
+   pytest tests/test_meeting_coordinator.py -v
+   ```
+
+2. **Integration Testing with Real Bedrock** (requires AWS credentials):
+   ```bash
+   source .venv/bin/activate
+   export ENV=local
+   export AWS_BEDROCK_ENABLED=1
+   # Ensure AWS credentials are configured (aws configure or env vars)
+   pytest tests/test_meeting_coordinator.py -v -m integration
+   ```
+
+3. **Interactive Local Testing** (best for development iteration):
+   ```bash
+   source .venv/bin/activate
+   export ENV=local
+   # Optional: export AWS_BEDROCK_ENABLED=1 for real Bedrock calls
+   python scripts/test_agent_local.py
+   ```
+   This launches an interactive chat session where you can test the agent conversationally.
+
+4. **Quick Example Test** (non-interactive):
+   ```bash
+   python scripts/test_agent_local.py --example
+   ```
+
+**Important Notes:**
+- Session files are stored in `.sessions/` for local testing (gitignored)
+- Always set `ENV=local` for local testing to avoid S3 dependencies
+- The `test_utils.py` module provides fixtures and helpers for agent testing
+- Mock AWS services using `moto` for DynamoDB tables in tests
+- Use `@pytest.mark.integration` for tests requiring real AWS API calls
+
+**Session Manager Pattern:**
+```python
+# CORRECT: Create session manager with session_id
+def create_session_manager(session_id: str):
+    if ENV == "local":
+        return FileSessionManager(
+            session_id=session_id,
+            directory=".sessions",
+        )
+    else:
+        return S3SessionManager(
+            session_id=session_id,
+            bucket=SESSIONS_BUCKET_NAME,
+            region_name=AWS_REGION,
+        )
+
+# CORRECT: Create agent per-request
+agent = create_agent(session_id)
+response = await agent.run(user_message=message)
+```
+
+**Common Testing Issues:**
+1. **S3SessionManager initialization error**: Ensure you're using `ENV=local` for local testing
+2. **Missing AWS credentials**: Set `AWS_BEDROCK_ENABLED=0` (default) for mock testing
+3. **Session persistence**: Check `.sessions/` directory for session files
+4. **Import errors**: Ensure virtual environment is activated
 
 ## Common Pitfalls to Avoid
 
@@ -241,7 +339,7 @@ When implementing agents or workflows:
 4. **Don't skip session management**: All agents need proper session persistence
 5. **Don't ignore meeting type detection**: Robust keyword matching + attendee count rules
 6. **Don't over-engineer**: Start with simple implementations, iterate based on user feedback
-7. **Remember healthcare compliance**: Audit logs, encryption, no PHI in agent prompts
+7. **Remember security requirements**: Audit logs, encryption, secure data handling
 
 ## Reference Documentation
 
