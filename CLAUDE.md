@@ -11,28 +11,6 @@ This is an Executive Assistant multi-agent system for operations leadership. The
 - **Infrastructure**: Pulumi (AWS: Bedrock, Lambda, DynamoDB, EventBridge, S3, SNS/SQS, Step Functions)
 - **Communication**: Slack API (primary), Twilio (SMS), SendGrid/SES (email)
 
-## Development Environment
-
-**IMPORTANT: Always use the Python virtual environment for all pip commands and Python operations.**
-
-- Virtual environment location: `.venv/` (in project root)
-- Before running any pip install or Python commands, activate the venv:
-  ```bash
-  source .venv/bin/activate
-  ```
-- For Pulumi deployments from the infrastructure directory:
-  ```bash
-  source ../.venv/bin/activate  # Activate from infrastructure/ directory
-  pulumi up
-  ```
-- The virtual environment contains all project dependencies including:
-  - Pulumi and pulumi-aws for infrastructure deployment
-  - strands-sdk for agent development
-  - All application dependencies from requirements.txt
-
-**Never use `--break-system-packages` or install packages system-wide. Always use the .venv environment.**
-
-**Make sure you create a new branch when starting new plans and PR back to the main line when you have completed activities**
 
 ## Architecture
 
@@ -80,9 +58,20 @@ exec_assistant/
 └── tests/               # Unit and integration tests
 ```
 
+## Task Workflow
+
+### Branch Code and Create PR After Changes Are Ready
+**MAKE SURE YOU BRANCH OR ARE WITHIN A BRANCH BEFORE YOU MAKE ANY CHANGES**
+**Create a Pull Request with insightful comments**
+
+### Use Sub-Agents for Python Development and Infrastructure-as-Code
+**Use the python-dev-expert agent when developing any python**
+**Use the pulumi-infrastructure-manager agent when developing any changes within the ./infrastructure/ folder**
+
+
 ## Strands SDK Patterns (CRITICAL)
 
-This project MUST follow the patterns from AGENTS.md. Key requirements:
+Key requirements:
 
 ### Agent Implementation
 ```python
@@ -230,7 +219,7 @@ This system is designed for **operations and infrastructure leadership**. Contex
 
 When implementing agents or workflows:
 
-1. **Follow Strands SDK patterns** from AGENTS.md religiously
+1. **Follow Strands SDK patterns** [from](https://github.com/strands-agents/sdk-python)
 2. **Start with data models** in `shared/models.py` (Meeting, BigRock, Incident, etc.)
 3. **Implement agents** with proper `@tool` decorators
 4. **Use S3SessionManager** for production, FileSessionManager for local dev

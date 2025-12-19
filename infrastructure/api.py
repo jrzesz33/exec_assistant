@@ -405,7 +405,7 @@ def create_agent_lambda(
                 "SESSIONS_BUCKET_NAME": sessions_bucket.bucket,
                 "JWT_SECRET_KEY": jwt_secret_key,
                 "ENV": environment,  # Set to 'dev', 'staging', or 'prod' (NOT 'local')
-                "AWS_REGION": "us-east-1",
+                #"AWS_REGION": "us-east-1",
             },
         ),
         tags={
