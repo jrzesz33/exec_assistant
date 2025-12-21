@@ -158,8 +158,12 @@ def create_lambda_policy(
                             "Effect": "Allow",
                             "Action": [
                                 "bedrock:InvokeModel",
+                                "bedrock:InvokeModelWithResponseStream",
                             ],
-                            "Resource": "arn:aws:bedrock:*::foundation-model/us.amazon.nova-*",
+                            "Resource": [
+                                "arn:aws:bedrock:*::foundation-model/us.amazon.nova-*",
+                                "arn:aws:bedrock:*:*:inference-profile/*",
+                            ],
                         },
                     ]
                     if sessions_bucket
