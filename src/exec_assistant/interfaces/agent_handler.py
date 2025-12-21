@@ -153,7 +153,7 @@ async def handle_chat_send(event: dict[str, Any], context: Any) -> dict[str, Any
             chat_session = ChatSession(
                 session_id=session_id,
                 user_id=user_id,
-                meeting_id="",  # No specific meeting for general chat
+                meeting_id=None,  # No specific meeting for general chat
                 state=ChatSessionState.ACTIVE,
                 expires_at=datetime.now(timezone.utc) + timedelta(hours=2),
             )

@@ -465,6 +465,101 @@ SESSIONS_BUCKET_NAME=exec-assistant-sessions
 
 **Prevention**: Test session persistence with multiple messages.
 
+### Issue 6: DynamoDB ValidationException - Empty String in Index Key
+
+**Symptom**:
+```
+botocore.exceptions.ClientError: An error occurred (ValidationException) when calling the PutItem operation:
+One or more parameter values are not valid. A value specified for a secondary index key is not supported.
+The AttributeValue for a key attribute cannot contain an empty string value.
+IndexName: MeetingIndex, IndexKey: meeting_id
+```
+
+**Root Cause**: DynamoDB does not allow empty strings in fields used as Global Secondary Index (GSI) keys.
+
+**Solution**:
+
+**INCORRECT** - Setting field to empty string:
+```python
+chat_session = ChatSession(
+    session_id="abc-123",
+    user_id="U12345",
+    meeting_id="",  # Empty string - WRONG!
+)
+```
+
+**CORRECT** - Use None or omit the field:
+```python
+# Option 1: Use None
+chat_session = ChatSession(
+    session_id="abc-123",
+    user_id="U12345",
+    meeting_id=None,  # Correct
+)
+
+# Option 2: Omit field entirely (if optional)
+chat_session = ChatSession(
+    session_id="abc-123",
+    user_id="U12345",
+    # No meeting_id - also correct
+)
+```
+
+**Model Implementation** - Omit empty strings in `to_dynamodb()`:
+```python
+def to_dynamodb(self) -> dict[str, Any]:
+    """Convert to DynamoDB item format."""
+    data = self.model_dump()
+
+    # Remove meeting_id if empty (MeetingIndex GSI constraint)
+    if not data.get("meeting_id"):
+        data.pop("meeting_id", None)
+
+    return data
+```
+
+**Prevention**:
+1. Run DynamoDB validation tests: `pytest tests/test_dynamodb_validation.py -v`
+2. Use pre-deployment validation: `python scripts/validate_deployment.py` (includes DynamoDB checks)
+3. Review GSI keys in `infrastructure/storage.py` before model changes
+
+**DynamoDB Constraints to Remember**:
+- ❌ No empty strings in index keys (primary or secondary)
+- ❌ No missing required attributes
+- ✅ Use `None` or omit attributes instead of empty strings
+- ✅ Validate data types match schema
+
+**Tables with GSI Keys**:
+
+| Table | GSI Name | Hash Key | Range Key |
+|-------|----------|----------|-----------|
+| chat-sessions | MeetingIndex | meeting_id | - |
+| chat-sessions | UserIndex | user_id | - |
+| meetings | UserStartTimeIndex | user_id | start_time |
+| action-items | MeetingIndex | meeting_id | - |
+| action-items | OwnerIndex | owner | - |
+| users | GoogleIdIndex | google_id | - |
+| users | EmailIndex | email | - |
+
+**Testing DynamoDB Models Locally**:
+
+```bash
+# Run DynamoDB validation tests
+pytest tests/test_dynamodb_validation.py -v
+
+# Test specific model serialization
+pytest tests/test_dynamodb_validation.py::TestChatSessionDynamoDB::test_chat_session_without_meeting_id -v
+
+# Validate all models before deployment
+python scripts/validate_deployment.py
+```
+
+**What the validation checks**:
+- No empty strings in GSI keys
+- Datetime fields are ISO strings
+- Optional fields handled correctly
+- Roundtrip serialization preserves data
+
 ---
 
 ## Quick Reference

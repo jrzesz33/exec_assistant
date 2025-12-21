@@ -4,7 +4,7 @@ All models use Pydantic for validation and serialization.
 Models are designed to work with DynamoDB and S3 storage.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -98,8 +98,8 @@ class Meeting(BaseModel):
     )
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_synced_at: datetime | None = Field(
         None, description="Last time synced from calendar"
     )
@@ -137,7 +137,7 @@ class ChatMessage(BaseModel):
 
     role: str = Field(..., description="Message role: 'user' or 'assistant'")
     content: str = Field(..., description="Message content")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("role")
     @classmethod
@@ -155,7 +155,7 @@ class ChatSession(BaseModel):
     # Identifiers
     session_id: str = Field(..., description="Unique session identifier")
     user_id: str = Field(..., description="Slack user ID")
-    meeting_id: str = Field(..., description="Associated meeting ID")
+    meeting_id: str | None = Field(None, description="Associated meeting ID (None for general chat)")
 
     # State
     state: ChatSessionState = Field(
@@ -185,8 +185,8 @@ class ChatSession(BaseModel):
     )
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime | None = Field(
         None, description="Session expiration time"
     )
@@ -195,10 +195,15 @@ class ChatSession(BaseModel):
         """Add a message to the conversation history."""
         message = ChatMessage(role=role, content=content)
         self.messages.append(message)
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def to_dynamodb(self) -> dict[str, Any]:
-        """Convert to DynamoDB item format."""
+        """Convert to DynamoDB item format.
+
+        Note: DynamoDB does not allow empty strings in index keys.
+        Fields used in global secondary indexes (meeting_id) are only
+        included if they have non-empty values.
+        """
         data = self.model_dump()
         # Convert datetime objects to ISO format strings
         for field in ["created_at", "updated_at", "expires_at"]:
@@ -213,6 +218,10 @@ class ChatSession(BaseModel):
             }
             for msg in self.messages
         ]
+        # Remove meeting_id if empty (DynamoDB index constraint)
+        # The MeetingIndex GSI uses meeting_id as hash key and cannot have empty strings
+        if not data.get("meeting_id"):
+            data.pop("meeting_id", None)
         return data
 
     @classmethod
@@ -263,7 +272,7 @@ class MeetingMaterials(BaseModel):
     )
 
     # Metadata
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     s3_key: str | None = Field(None, description="S3 key where materials are stored")
     presigned_url: str | None = Field(
         None, description="Presigned URL for accessing materials"
@@ -356,16 +365,25 @@ class ActionItem(BaseModel):
     notes: str | None = Field(None, description="Additional notes or context")
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     def to_dynamodb(self) -> dict[str, Any]:
-        """Convert to DynamoDB item format."""
+        """Convert to DynamoDB item format.
+
+        Note: DynamoDB does not allow empty strings or null values in index keys.
+        Fields used in global secondary indexes (owner) are only included
+        if they have non-empty values.
+        """
         data = self.model_dump()
         # Convert datetime objects to ISO format strings
         for field in ["due_date", "completed_at", "created_at", "updated_at"]:
             if data.get(field):
                 data[field] = data[field].isoformat()
+        # Remove owner if None or empty (OwnerIndex GSI constraint)
+        # The OwnerIndex GSI uses owner as hash key and cannot have empty strings or null
+        if not data.get("owner"):
+            data.pop("owner", None)
         return data
 
     @classmethod
@@ -421,9 +439,9 @@ class User(BaseModel):
     )
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_login_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_login_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("email")
     @classmethod
@@ -436,8 +454,8 @@ class User(BaseModel):
 
     def update_last_login(self) -> None:
         """Update last login timestamp."""
-        self.last_login_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.last_login_at = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(timezone.utc)
 
     def connect_calendar(self, refresh_token: str) -> None:
         """Connect Google Calendar with refresh token.
@@ -447,15 +465,15 @@ class User(BaseModel):
         """
         self.calendar_connected = True
         self.calendar_refresh_token = refresh_token
-        self.calendar_last_sync = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.calendar_last_sync = datetime.now(timezone.utc)
+        self.updated_at = datetime.now(timezone.utc)
 
     def disconnect_calendar(self) -> None:
         """Disconnect Google Calendar."""
         self.calendar_connected = False
         self.calendar_refresh_token = None
         self.calendar_last_sync = None
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def to_dynamodb(self) -> dict[str, Any]:
         """Convert to DynamoDB item format."""

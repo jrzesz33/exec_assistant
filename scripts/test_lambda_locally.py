@@ -295,8 +295,47 @@ class LambdaTestHarness:
 
         print(f"\n{BOLD}{'='*60}{RESET}\n")
 
+    def validate_dynamodb_item(self, item: dict[str, Any], model_name: str = "") -> list[str]:
+        """Validate DynamoDB item for common constraint violations.
+
+        Args:
+            item: DynamoDB item dictionary
+            model_name: Name of the model (for error messages)
+
+        Returns:
+            List of validation errors (empty if valid)
+        """
+        errors = []
+
+        # Known GSI keys per table (from infrastructure/storage.py)
+        gsi_keys = {
+            "chat-sessions": ["user_id", "meeting_id"],
+            "meetings": ["user_id", "start_time"],
+            "action-items": ["meeting_id", "owner"],
+            "users": ["google_id", "email"],
+        }
+
+        # Check for empty strings in any field
+        for key, value in item.items():
+            if isinstance(value, str) and value == "":
+                # Determine if this field is a GSI key
+                is_gsi_key = any(key in keys for keys in gsi_keys.values())
+
+                if is_gsi_key:
+                    errors.append(
+                        f"{model_name}.{key} is an empty string (violates GSI constraint). "
+                        f"Use None or omit the field instead."
+                    )
+                else:
+                    # Warn about empty strings in non-GSI fields (best practice)
+                    errors.append(
+                        f"{model_name}.{key} is an empty string (consider using None instead)"
+                    )
+
+        return errors
+
     def validate_response(self, response: dict[str, Any]) -> bool:
-        """Validate handler response format.
+        """Validate handler response format and DynamoDB operations.
 
         Args:
             response: Handler response
