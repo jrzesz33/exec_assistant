@@ -161,6 +161,7 @@ def create_lambda_policy(
                                 "bedrock:InvokeModelWithResponseStream",
                             ],
                             "Resource": [
+                                "arn:aws:bedrock:*::foundation-model/amazon.nova-*",
                                 "arn:aws:bedrock:*::foundation-model/us.amazon.nova-*",
                                 "arn:aws:bedrock:*:*:inference-profile/*",
                             ],

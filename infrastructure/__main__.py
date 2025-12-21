@@ -14,8 +14,6 @@ from storage import create_dynamodb_tables, create_kms_key, create_s3_buckets
 try:
     from api import (
         create_agent_lambda,
-        create_api_gateway,
-        create_auth_lambda,
         create_lambda_policy,
         create_lambda_role,
         create_ui_bucket,
