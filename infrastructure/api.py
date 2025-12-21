@@ -185,6 +185,7 @@ def create_auth_lambda(
     role: aws.iam.Role,
     users_table: aws.dynamodb.Table,
     config: pulumi.Config,
+    api_endpoint: pulumi.Output[str] | None = None,
 ) -> aws.lambda_.Function:
     """Create Lambda function for authentication endpoints.
 
@@ -193,6 +194,7 @@ def create_auth_lambda(
         role: Lambda IAM role
         users_table: Users DynamoDB table
         config: Pulumi configuration
+        api_endpoint: Optional API Gateway endpoint URL (Pulumi Output)
 
     Returns:
         Lambda function resource
@@ -214,9 +216,14 @@ def create_auth_lambda(
     google_oauth_client_secret = config.require_secret("google_oauth_client_secret")
     jwt_secret_key = config.require_secret("jwt_secret_key") if config.get_secret("jwt_secret_key") else pulumi.Output.secret("changeme-generate-secure-key")
 
-    # Get or set redirect URI
-    # This will be updated after API Gateway is created
-    redirect_uri = config.get("google_oauth_redirect_uri") or "https://placeholder.com/auth/callback"
+    # Construct redirect URI from API endpoint
+    # If api_endpoint provided, use it to construct the OAuth callback URL
+    # Otherwise fall back to config value or placeholder
+    if api_endpoint:
+        redirect_uri = api_endpoint.apply(lambda endpoint: f"{endpoint}/auth/callback")
+    else:
+        redirect_uri = config.get("google_oauth_redirect_uri") or "https://placeholder.com/auth/callback"
+
     frontend_url = config.get("frontend_url") or "https://placeholder.com"
 
     # Build Lambda deployment package with dependencies
@@ -272,6 +279,21 @@ def create_auth_lambda(
         }
     )
 
+    # Build environment variables dict
+    # Use Output.all() to handle both static values and Pulumi Outputs
+    env_vars = {
+        "USERS_TABLE_NAME": users_table.name,
+        "GOOGLE_OAUTH_CLIENT_ID": google_oauth_client_id,
+        "GOOGLE_OAUTH_CLIENT_SECRET": google_oauth_client_secret,
+        "JWT_SECRET_KEY": jwt_secret_key,
+        "FRONTEND_URL": frontend_url,
+        "ENV": environment,  # Set to 'dev', 'staging', or 'prod' (NOT 'local')
+    }
+
+    # Add GOOGLE_OAUTH_REDIRECT_URI
+    # If it's a Pulumi Output, Pulumi will handle it automatically
+    env_vars["GOOGLE_OAUTH_REDIRECT_URI"] = redirect_uri
+
     # Create Lambda function
     auth_lambda = aws.lambda_.Function(
         f"exec-assistant-auth-{environment}",
@@ -283,16 +305,7 @@ def create_auth_lambda(
         timeout=30,
         memory_size=512,
         environment=aws.lambda_.FunctionEnvironmentArgs(
-            variables={
-                "USERS_TABLE_NAME": users_table.name,
-                "GOOGLE_OAUTH_CLIENT_ID": google_oauth_client_id,
-                "GOOGLE_OAUTH_CLIENT_SECRET": google_oauth_client_secret,
-                "GOOGLE_OAUTH_REDIRECT_URI": redirect_uri,
-                "JWT_SECRET_KEY": jwt_secret_key,
-                "FRONTEND_URL": frontend_url,
-                "ENV": environment,  # Set to 'dev', 'staging', or 'prod' (NOT 'local')
-                #"AWS_REGION": "us-east-1",
-            },
+            variables=env_vars,
         ),
         tags={
             "Environment": environment,
@@ -426,7 +439,7 @@ def create_api_gateway(
     environment: str,
     auth_lambda: aws.lambda_.Function,
     agent_lambda: aws.lambda_.Function | None = None,
-) -> tuple[aws.apigatewayv2.Api, str]:
+) -> tuple[aws.apigatewayv2.Api, pulumi.Output[str]]:
     """Create API Gateway HTTP API.
 
     Args:
@@ -435,7 +448,7 @@ def create_api_gateway(
         agent_lambda: Optional agent chat Lambda function
 
     Returns:
-        Tuple of (API Gateway resource, API endpoint URL)
+        Tuple of (API Gateway resource, API endpoint URL as Pulumi Output)
     """
     # Create HTTP API
     api = aws.apigatewayv2.Api(
@@ -538,6 +551,139 @@ def create_api_gateway(
     api_endpoint = api.api_endpoint
 
     return api, api_endpoint
+
+
+def create_auth_and_api_gateway(
+    environment: str,
+    lambda_role: aws.iam.Role,
+    users_table: aws.dynamodb.Table,
+    config: pulumi.Config,
+    agent_lambda: aws.lambda_.Function | None = None,
+) -> tuple[aws.lambda_.Function, aws.apigatewayv2.Api, pulumi.Output[str]]:
+    """Create authentication Lambda and API Gateway with proper redirect URI configuration.
+
+    This function solves the circular dependency between auth Lambda and API Gateway:
+    - Auth Lambda needs API Gateway endpoint for OAuth redirect URI
+    - API Gateway needs auth Lambda ARN for integration
+
+    Solution: Create a temporary API resource to get the endpoint, then create auth Lambda
+    with that endpoint, then complete the API Gateway setup.
+
+    Args:
+        environment: Environment name
+        lambda_role: Lambda IAM role
+        users_table: Users DynamoDB table
+        config: Pulumi configuration
+        agent_lambda: Optional agent Lambda function
+
+    Returns:
+        Tuple of (auth Lambda, API Gateway, API endpoint URL)
+    """
+    # Step 1: Create API Gateway resource first (without routes)
+    api = aws.apigatewayv2.Api(
+        f"exec-assistant-api-{environment}",
+        name=f"exec-assistant-api-{environment}",
+        protocol_type="HTTP",
+        cors_configuration=aws.apigatewayv2.ApiCorsConfigurationArgs(
+            allow_origins=["*"],  # Should be restricted in production
+            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_headers=["Content-Type", "Authorization"],
+        ),
+        tags={
+            "Environment": environment,
+            "Project": "exec-assistant",
+            "ManagedBy": "pulumi",
+        },
+    )
+
+    # Get API endpoint
+    api_endpoint = api.api_endpoint
+
+    # Step 2: Create auth Lambda with the API endpoint for redirect URI
+    auth_lambda = create_auth_lambda(
+        environment, lambda_role, users_table, config, api_endpoint
+    )
+
+    # Step 3: Create Lambda integration for auth
+    auth_integration = aws.apigatewayv2.Integration(
+        f"exec-assistant-auth-integration-{environment}",
+        api_id=api.id,
+        integration_type="AWS_PROXY",
+        integration_uri=auth_lambda.arn,
+        payload_format_version="2.0",
+    )
+
+    # Create auth routes
+    auth_routes = [
+        ("GET", "/auth/login"),
+        ("GET", "/auth/callback"),
+        ("POST", "/auth/refresh"),
+        ("GET", "/auth/me"),
+    ]
+
+    for method, path in auth_routes:
+        aws.apigatewayv2.Route(
+            f"exec-assistant-{method.lower()}-{path.replace('/', '-')}-{environment}",
+            api_id=api.id,
+            route_key=f"{method} {path}",
+            target=auth_integration.id.apply(lambda id: f"integrations/{id}"),
+        )
+
+    # Grant API Gateway permission to invoke auth Lambda
+    aws.lambda_.Permission(
+        f"exec-assistant-api-auth-lambda-permission-{environment}",
+        action="lambda:InvokeFunction",
+        function=auth_lambda.name,
+        principal="apigateway.amazonaws.com",
+        source_arn=api.execution_arn.apply(lambda arn: f"{arn}/*/*"),
+    )
+
+    # Step 4: Create agent integration and routes if agent Lambda provided
+    if agent_lambda:
+        agent_integration = aws.apigatewayv2.Integration(
+            f"exec-assistant-agent-integration-{environment}",
+            api_id=api.id,
+            integration_type="AWS_PROXY",
+            integration_uri=agent_lambda.arn,
+            payload_format_version="2.0",
+        )
+
+        # Create agent routes
+        agent_routes = [
+            ("POST", "/chat/send"),
+        ]
+
+        for method, path in agent_routes:
+            aws.apigatewayv2.Route(
+                f"exec-assistant-{method.lower()}-{path.replace('/', '-')}-{environment}",
+                api_id=api.id,
+                route_key=f"{method} {path}",
+                target=agent_integration.id.apply(lambda id: f"integrations/{id}"),
+            )
+
+        # Grant API Gateway permission to invoke agent Lambda
+        aws.lambda_.Permission(
+            f"exec-assistant-api-agent-lambda-permission-{environment}",
+            action="lambda:InvokeFunction",
+            function=agent_lambda.name,
+            principal="apigateway.amazonaws.com",
+            source_arn=api.execution_arn.apply(lambda arn: f"{arn}/*/*"),
+        )
+
+    # Step 5: Create stage (auto-deploy)
+    stage = aws.apigatewayv2.Stage(
+        f"exec-assistant-api-stage-{environment}",
+        api_id=api.id,
+        name="$default",
+        auto_deploy=True,
+        tags={
+            "Environment": environment,
+            "Project": "exec-assistant",
+            "ManagedBy": "pulumi",
+        },
+    )
+
+    return auth_lambda, api, api_endpoint
 
 
 def create_ui_bucket(environment: str) -> tuple[aws.s3.Bucket, str]:
