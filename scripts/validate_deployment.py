@@ -507,6 +507,156 @@ class DeploymentValidator:
                 message=f"Linting check failed: {e}",
             )
 
+    def check_dynamodb_constraints(self) -> ValidationResult:
+        """Check that models respect DynamoDB constraints.
+
+        Verifies:
+        - No empty strings in fields used as GSI keys
+        - Proper handling of None/null values
+        - to_dynamodb() methods don't produce invalid data
+
+        Returns:
+            ValidationResult with DynamoDB constraint check status
+        """
+        print(f"\n{BOLD}{'='*60}{RESET}")
+        print(f"{BOLD}Checking DynamoDB Constraints{RESET}")
+        print(f"{BOLD}{'='*60}{RESET}")
+
+        try:
+            from datetime import datetime, timedelta, timezone
+
+            from exec_assistant.shared.models import (
+                ActionItem,
+                ChatSession,
+                ChatSessionState,
+                Meeting,
+                MeetingStatus,
+                MeetingType,
+                User,
+            )
+
+            issues = []
+
+            # Test ChatSession with empty meeting_id (MeetingIndex GSI key)
+            print(f"Checking ChatSession with empty meeting_id...")
+            session_no_meeting = ChatSession(
+                session_id="test-1",
+                user_id="U123",
+                meeting_id=None,
+                state=ChatSessionState.ACTIVE,
+            )
+            item = session_no_meeting.to_dynamodb()
+            if "meeting_id" in item:
+                if item["meeting_id"] == "":
+                    issues.append(
+                        "ChatSession.to_dynamodb() produces empty string for meeting_id "
+                        "(violates MeetingIndex GSI constraint)"
+                    )
+                    print(f"{RED}✗ Empty string in meeting_id{RESET}")
+                else:
+                    print(f"{GREEN}✓ meeting_id has value: {item['meeting_id']}{RESET}")
+            else:
+                print(f"{GREEN}✓ meeting_id omitted when None{RESET}")
+
+            # Test ChatSession with empty string meeting_id
+            print(f"Checking ChatSession with empty string meeting_id...")
+            session_empty_meeting = ChatSession(
+                session_id="test-2",
+                user_id="U123",
+                meeting_id="",
+                state=ChatSessionState.ACTIVE,
+            )
+            item = session_empty_meeting.to_dynamodb()
+            if "meeting_id" in item and item["meeting_id"] == "":
+                issues.append(
+                    "ChatSession.to_dynamodb() includes empty string meeting_id "
+                    "(should be omitted)"
+                )
+                print(f"{RED}✗ Empty string meeting_id not omitted{RESET}")
+            else:
+                print(f"{GREEN}✓ Empty string meeting_id omitted{RESET}")
+
+            # Test ActionItem with empty owner (OwnerIndex GSI key)
+            print(f"Checking ActionItem with empty owner...")
+            action_no_owner = ActionItem(
+                action_id="action-1",
+                meeting_id="meeting-1",
+                description="Test task",
+                owner=None,
+            )
+            item = action_no_owner.to_dynamodb()
+            if "owner" in item and item["owner"] == "":
+                issues.append(
+                    "ActionItem.to_dynamodb() produces empty string for owner "
+                    "(violates OwnerIndex GSI constraint)"
+                )
+                print(f"{RED}✗ Empty string in owner{RESET}")
+            else:
+                print(f"{GREEN}✓ owner field handled correctly{RESET}")
+
+            # Test Meeting datetime serialization
+            print(f"Checking Meeting datetime serialization...")
+            now = datetime.now(timezone.utc)
+            meeting = Meeting(
+                meeting_id="m1",
+                user_id="U1",
+                title="Test Meeting",
+                start_time=now + timedelta(hours=1),
+                end_time=now + timedelta(hours=2),
+            )
+            item = meeting.to_dynamodb()
+            if not isinstance(item.get("start_time"), str):
+                issues.append(
+                    f"Meeting.start_time not serialized to string: {type(item.get('start_time'))}"
+                )
+                print(f"{RED}✗ start_time not a string{RESET}")
+            else:
+                print(f"{GREEN}✓ Datetime fields serialized to ISO strings{RESET}")
+
+            # Test User with Google ID (GoogleIdIndex GSI key)
+            print(f"Checking User model...")
+            user = User(
+                user_id="u1",
+                google_id="google-123",
+                email="test@example.com",
+                name="Test User",
+            )
+            item = user.to_dynamodb()
+            if "google_id" in item and item["google_id"] == "":
+                issues.append("User.google_id is empty string (violates GoogleIdIndex)")
+                print(f"{RED}✗ Empty google_id{RESET}")
+            else:
+                print(f"{GREEN}✓ User fields handled correctly{RESET}")
+
+            # Summary
+            if issues:
+                return ValidationResult(
+                    name="DynamoDB Constraints",
+                    passed=False,
+                    message=f"Found {len(issues)} constraint violations",
+                    details="\n".join(f"- {issue}" for issue in issues),
+                )
+
+            print(f"\n{GREEN}All DynamoDB constraints validated successfully{RESET}")
+            return ValidationResult(
+                name="DynamoDB Constraints",
+                passed=True,
+                message="All models respect DynamoDB constraints",
+            )
+
+        except ImportError as e:
+            return ValidationResult(
+                name="DynamoDB Constraints",
+                passed=False,
+                message=f"Failed to import models: {e}",
+            )
+        except Exception as e:
+            return ValidationResult(
+                name="DynamoDB Constraints",
+                passed=False,
+                message=f"Validation check failed: {e}",
+            )
+
     def print_report(self) -> None:
         """Print validation report."""
         print(f"\n{BOLD}{'='*60}{RESET}")
@@ -548,6 +698,7 @@ class DeploymentValidator:
         # Run checks
         self.results.append(self.check_python_syntax())
         self.results.append(self.check_imports())
+        self.results.append(self.check_dynamodb_constraints())  # New: DynamoDB validation
         self.results.append(self.run_unit_tests())
 
         if self.full_validation:
