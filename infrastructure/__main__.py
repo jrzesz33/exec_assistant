@@ -14,8 +14,6 @@ from storage import create_dynamodb_tables, create_kms_key, create_s3_buckets
 try:
     from api import (
         create_agent_lambda,
-        create_api_gateway,
-        create_auth_lambda,
         create_lambda_policy,
         create_lambda_role,
         create_ui_bucket,
@@ -85,11 +83,6 @@ if enable_phase_1_5 and PHASE_1_5_AVAILABLE:
         sessions_bucket=buckets["sessions"] if enable_phase_2 else None,
     )
 
-    # Create authentication Lambda function
-    auth_lambda = create_auth_lambda(environment, lambda_role, tables["users"], config)
-    pulumi.export("auth_lambda_arn", auth_lambda.arn)
-    pulumi.export("auth_lambda_name", auth_lambda.name)
-
     # Phase 2: Agent Lambda (optional)
     agent_lambda = None
     if enable_phase_2:
@@ -108,10 +101,22 @@ if enable_phase_1_5 and PHASE_1_5_AVAILABLE:
 
         pulumi.log.info("Phase 2: Agent Lambda created")
 
-    # Create API Gateway (with agent routes if Phase 2 enabled)
-    api, api_endpoint = create_api_gateway(environment, auth_lambda, agent_lambda)
+    # Create authentication Lambda and API Gateway together
+    # This ensures the auth Lambda gets the correct OAuth redirect URI
+    from api import create_auth_and_api_gateway
+
+    auth_lambda, api, api_endpoint = create_auth_and_api_gateway(
+        environment, lambda_role, tables["users"], config, agent_lambda
+    )
+
+    pulumi.export("auth_lambda_arn", auth_lambda.arn)
+    pulumi.export("auth_lambda_name", auth_lambda.name)
     pulumi.export("api_id", api.id)
     pulumi.export("api_endpoint", api_endpoint)
+
+    # Export the OAuth redirect URI for reference
+    oauth_redirect_uri = api_endpoint.apply(lambda endpoint: f"{endpoint}/auth/callback")
+    pulumi.export("oauth_redirect_uri", oauth_redirect_uri)
 
     # Create UI bucket for static website hosting
     ui_bucket, ui_website_url = create_ui_bucket(environment)
