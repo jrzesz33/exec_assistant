@@ -1,0 +1,8 @@
+{
+  "httpMethod": "POST",
+  "path": "/auth/token",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": "{\"user_id\": \"test-user-123\"}"
+}

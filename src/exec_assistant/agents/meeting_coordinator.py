@@ -221,13 +221,18 @@ async def run_meeting_coordinator(
         # Execute agent with user message (using Strands SDK async invocation)
         response = await agent.invoke_async(message)
 
+        # Extract response text from Strands SDK response format
+        # Response format: response.message is a dict with structure:
+        # {"content": [{"text": "response text"}], "role": "assistant"}
+        response_text = response.message["content"][0]["text"]
+
         logger.info(
             "session_id=<%s>, response_length=<%d> | agent response generated",
             session_id,
-            len(response.message.content[0].text),
+            len(response_text),
         )
 
-        return response.message.content[0].text
+        return response_text
 
     except Exception as e:
         logger.error(

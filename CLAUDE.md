@@ -228,6 +228,149 @@ When implementing agents or workflows:
 7. **Configure EventBridge** for scheduled tasks (calendar checks, routine reminders)
 8. **Test end-to-end** with real Slack/calendar integrations
 
+## Testing Before Deployment (MANDATORY)
+
+**CRITICAL RULE**: No code changes are deployed to AWS without passing the complete validation workflow.
+
+### Pre-Commit Testing
+
+Before committing any code changes:
+
+1. **Activate virtual environment**:
+   ```bash
+   source .venv/bin/activate
+   ```
+
+2. **Set local environment**:
+   ```bash
+   export ENV=local
+   ```
+
+3. **Run unit tests**:
+   ```bash
+   pytest tests/ -v
+   ```
+
+4. **Format and lint code**:
+   ```bash
+   ruff format src/ tests/
+   ruff check src/ tests/
+   ```
+
+All checks must pass before committing.
+
+### Pre-PR Testing
+
+Before creating a pull request:
+
+1. **Run all pre-commit checks** (see above)
+
+2. **Run integration tests** (if AWS credentials available):
+   ```bash
+   export AWS_BEDROCK_ENABLED=1
+   pytest tests/ -v -m integration
+   ```
+
+3. **Check code coverage**:
+   ```bash
+   pytest --cov=src/exec_assistant --cov-report=term --cov-fail-under=70
+   ```
+
+4. **Manual agent testing**:
+   ```bash
+   python scripts/test_agent_local.py
+   ```
+
+5. **Verify no regressions**:
+   ```bash
+   pytest tests/test_bug_fixes.py -v
+   ```
+
+### Pre-Deployment Validation
+
+Before deploying to AWS Lambda:
+
+1. **Run automated validation**:
+   ```bash
+   # Basic validation
+   python scripts/validate_deployment.py
+
+   # Full validation (recommended)
+   export AWS_BEDROCK_ENABLED=1
+   python scripts/validate_deployment.py --full
+   ```
+
+2. **Test Lambda locally**:
+   ```bash
+   # With mocked AWS
+   python scripts/test_lambda_locally.py --event test_events/chat_message.json
+
+   # With real Bedrock (recommended)
+   export AWS_BEDROCK_ENABLED=1
+   python scripts/test_lambda_locally.py --event test_events/chat_message.json --real-aws
+   ```
+
+3. **Review validation report**:
+   - All unit tests must pass
+   - Integration tests should pass (if credentials available)
+   - Code coverage ≥ 70%
+   - No linting errors
+   - Lambda package builds successfully
+
+**Only deploy if validation report shows: "✅ READY FOR DEPLOYMENT"**
+
+### Post-Deployment Verification
+
+After deploying to AWS:
+
+1. **Immediate health check** (< 5 minutes):
+   ```bash
+   # Check CloudWatch logs
+   aws logs tail /aws/lambda/exec-assistant-agent-handler --follow
+
+   # Invoke Lambda directly
+   aws lambda invoke \
+     --function-name exec-assistant-agent-handler \
+     --payload file://test_events/chat_message.json \
+     response.json
+   ```
+
+2. **Smoke tests** (< 10 minutes):
+   - Test authentication flow
+   - Send test chat message
+   - Verify agent response
+   - Check DynamoDB records created
+   - Verify S3 session persistence
+
+3. **Monitor for 24 hours**:
+   - CloudWatch Logs: No ERROR/CRITICAL logs
+   - Lambda Metrics: Error rate < 1%, Duration < 5s
+   - DynamoDB Metrics: No throttling or system errors
+   - API Gateway: 5xx errors < 0.1%
+
+### Testing Documentation
+
+Comprehensive testing documentation is available in:
+- **`docs/TESTING.md`**: Complete testing guide and troubleshooting
+- **`test_events/README.md`**: Sample event files and usage
+- **`tests/test_bug_fixes.py`**: Regression prevention tests
+
+### Quick Reference
+
+```bash
+# Pre-commit
+pytest tests/ -v && ruff format src/ tests/ && ruff check src/ tests/
+
+# Pre-PR
+export AWS_BEDROCK_ENABLED=1 && pytest tests/ -v --cov=src/exec_assistant --cov-fail-under=70
+
+# Pre-deployment
+python scripts/validate_deployment.py --full && \
+python scripts/test_lambda_locally.py --event test_events/chat_message.json --real-aws
+```
+
+**Remember**: Every production bug caught locally saves hours of debugging in CloudWatch logs.
+
 ## Key Design Decisions
 
 1. **EventBridge for scheduling**: All time-based triggers use EventBridge scheduled rules
