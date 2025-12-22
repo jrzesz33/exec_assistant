@@ -30,6 +30,7 @@ Usage:
 
 import json
 import os
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -38,8 +39,6 @@ from botocore.exceptions import ClientError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
 from exec_assistant.shared.logging import get_logger
 from exec_assistant.shared.models import Meeting
@@ -286,6 +285,10 @@ class CalendarClient:
                     exc_info=True,
                 )
                 raise APIError(f"Failed to refresh credentials: {e}") from e
+
+        # Lazy import to avoid hanging during module load
+        from googleapiclient.discovery import build
+        from googleapiclient.errors import HttpError
 
         try:
             # Build Calendar API client
