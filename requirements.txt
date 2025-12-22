@@ -12,6 +12,12 @@ botocore>=1.34.0
 # Data Models and Validation
 pydantic>=2.0.0
 
+# Google Calendar Integration
+google-auth>=2.27.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.111.0
+
 # Authentication and JWT
 pyjwt>=2.8.0
 requests>=2.31.0
