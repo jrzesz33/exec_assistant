@@ -1,6 +1,6 @@
 """Unit tests for data models."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -28,8 +28,8 @@ class TestMeeting:
             meeting_id="meeting-123",
             user_id="U12345",
             title="Leadership Team Sync",
-            start_time=datetime(2025, 1, 15, 14, 0, tzinfo=timezone.utc),
-            end_time=datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc),
+            start_time=datetime(2025, 1, 15, 14, 0, tzinfo=UTC),
+            end_time=datetime(2025, 1, 15, 15, 0, tzinfo=UTC),
         )
         assert meeting.meeting_id == "meeting-123"
         assert meeting.user_id == "U12345"
@@ -45,8 +45,8 @@ class TestMeeting:
             user_id="U67890",
             title="Q1 Business Review",
             description="Quarterly review of infrastructure metrics",
-            start_time=datetime(2025, 4, 1, 10, 0, tzinfo=timezone.utc),
-            end_time=datetime(2025, 4, 1, 12, 0, tzinfo=timezone.utc),
+            start_time=datetime(2025, 4, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2025, 4, 1, 12, 0, tzinfo=UTC),
             location="https://zoom.us/j/123456789",
             attendees=["cio@company.com", "vp-infra@company.com"],
             organizer="assistant@company.com",
@@ -66,7 +66,7 @@ class TestMeeting:
                 user_id="U11111",
                 title="Test Meeting",
                 start_time=datetime(2025, 1, 1, 10, 0),  # No timezone!
-                end_time=datetime(2025, 1, 1, 11, 0, tzinfo=timezone.utc),
+                end_time=datetime(2025, 1, 1, 11, 0, tzinfo=UTC),
             )
 
     def test_meeting_to_dynamodb(self) -> None:
@@ -75,8 +75,8 @@ class TestMeeting:
             meeting_id="meeting-db",
             user_id="U99999",
             title="Test DB Serialization",
-            start_time=datetime(2025, 2, 1, 9, 0, tzinfo=timezone.utc),
-            end_time=datetime(2025, 2, 1, 10, 0, tzinfo=timezone.utc),
+            start_time=datetime(2025, 2, 1, 9, 0, tzinfo=UTC),
+            end_time=datetime(2025, 2, 1, 10, 0, tzinfo=UTC),
             meeting_type=MeetingType.ONE_ON_ONE,
         )
         item = meeting.to_dynamodb()
@@ -272,7 +272,7 @@ class TestActionItem:
             meeting_id="meeting-123",
             description="Review and approve Q2 budget",
             owner="vp-infra@company.com",
-            due_date=datetime(2025, 3, 1, 23, 59, tzinfo=timezone.utc),
+            due_date=datetime(2025, 3, 1, 23, 59, tzinfo=UTC),
         )
         assert action.description == "Review and approve Q2 budget"
         assert action.owner == "vp-infra@company.com"
@@ -286,9 +286,9 @@ class TestActionItem:
             meeting_id="meeting-456",
             description="Follow up on incident metrics",
             owner="U12345",
-            due_date=datetime(2025, 2, 15, 17, 0, tzinfo=timezone.utc),
+            due_date=datetime(2025, 2, 15, 17, 0, tzinfo=UTC),
             completed=True,
-            completed_at=datetime(2025, 2, 14, 10, 0, tzinfo=timezone.utc),
+            completed_at=datetime(2025, 2, 14, 10, 0, tzinfo=UTC),
         )
         item = action.to_dynamodb()
 

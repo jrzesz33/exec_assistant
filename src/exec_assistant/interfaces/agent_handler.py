@@ -8,15 +8,14 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import boto3
-from botocore.exceptions import ClientError
 
+from exec_assistant.agents.meeting_coordinator import run_meeting_coordinator
 from exec_assistant.shared.jwt_handler import JWTHandler
 from exec_assistant.shared.models import ChatSession, ChatSessionState
-from exec_assistant.agents.meeting_coordinator import run_meeting_coordinator
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -155,7 +154,7 @@ async def handle_chat_send(event: dict[str, Any], context: Any) -> dict[str, Any
                 user_id=user_id,
                 meeting_id=None,  # No specific meeting for general chat
                 state=ChatSessionState.ACTIVE,
-                expires_at=datetime.now(timezone.utc) + timedelta(hours=2),
+                expires_at=datetime.now(UTC) + timedelta(hours=2),
             )
 
         # Add user message

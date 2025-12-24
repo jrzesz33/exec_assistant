@@ -11,7 +11,7 @@ from typing import Any
 import boto3
 from strands.agent import Agent
 from strands.models import BedrockModel
-from strands.session import S3SessionManager, FileSessionManager
+from strands.session import FileSessionManager, S3SessionManager
 from strands.tools import tool
 
 logger = logging.getLogger(__name__)
@@ -125,7 +125,9 @@ def create_session_manager(session_id: str):
     else:
         # Use S3 session manager for production
         if not SESSIONS_BUCKET_NAME:
-            raise ValueError("SESSIONS_BUCKET_NAME environment variable required for non-local environments")
+            raise ValueError(
+                "SESSIONS_BUCKET_NAME environment variable required for non-local environments"
+            )
         logger.debug(
             "session_id=<%s>, bucket=<%s> | using S3SessionManager",
             session_id,

@@ -5,13 +5,14 @@ This module tests the meeting coordinator agent end-to-end with real Bedrock cal
 """
 
 import os
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
 
 from exec_assistant.agents.meeting_coordinator import (
-    run_meeting_coordinator,
     create_agent,
     create_session_manager,
+    run_meeting_coordinator,
 )
 from tests.test_utils import AgentTestHelper
 
@@ -61,7 +62,9 @@ class TestMeetingCoordinator:
         # Mock Bedrock response
         mock_model = MagicMock()
         mock_response = MagicMock()
-        mock_response.content = "Hello! I'm your Meeting Coordinator. How can I help you prepare for upcoming meetings?"
+        mock_response.content = (
+            "Hello! I'm your Meeting Coordinator. How can I help you prepare for upcoming meetings?"
+        )
         mock_model.run = AsyncMock(return_value=mock_response)
         mock_bedrock_class.return_value = mock_model
 

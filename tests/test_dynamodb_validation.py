@@ -8,16 +8,13 @@ Tests to ensure all models properly handle DynamoDB constraints:
 These tests use moto to mock DynamoDB operations locally.
 """
 
-import os
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from moto import mock_aws
 
 from exec_assistant.shared.models import (
     ActionItem,
-    ChatMessage,
     ChatSession,
     ChatSessionState,
     Meeting,
@@ -145,7 +142,7 @@ class TestChatSessionDynamoDB:
             user_id="U123456",
             meeting_id="meeting-123",
             state=ChatSessionState.ACTIVE,
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=2),
+            expires_at=datetime.now(UTC) + timedelta(hours=2),
         )
 
         # Convert to DynamoDB format
@@ -170,7 +167,7 @@ class TestChatSessionDynamoDB:
             user_id="U123456",
             meeting_id=None,
             state=ChatSessionState.ACTIVE,
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=2),
+            expires_at=datetime.now(UTC) + timedelta(hours=2),
         )
 
         # Convert to DynamoDB format
@@ -195,7 +192,7 @@ class TestChatSessionDynamoDB:
             user_id="U123456",
             meeting_id="",
             state=ChatSessionState.ACTIVE,
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=2),
+            expires_at=datetime.now(UTC) + timedelta(hours=2),
         )
 
         # Convert to DynamoDB format
@@ -217,8 +214,8 @@ class TestChatSessionDynamoDB:
             "messages": [],
             "context": {},
             "prep_responses": {},
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }
 
         # Should load successfully with meeting_id=None
@@ -232,7 +229,7 @@ class TestChatSessionDynamoDB:
             user_id="U123456",
             meeting_id="meeting-123",
             state=ChatSessionState.ACTIVE,
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=2),
+            expires_at=datetime.now(UTC) + timedelta(hours=2),
         )
 
         # Add messages
@@ -257,7 +254,7 @@ class TestMeetingDynamoDB:
 
     def test_meeting_basic_serialization(self, meetings_table):
         """Test Meeting can be stored in DynamoDB."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         meeting = Meeting(
             meeting_id="meeting-1",
             user_id="U123456",
@@ -280,7 +277,7 @@ class TestMeetingDynamoDB:
 
     def test_meeting_with_optional_fields(self, meetings_table):
         """Test Meeting with optional fields handles None correctly."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         meeting = Meeting(
             meeting_id="meeting-2",
             user_id="U123456",
@@ -300,14 +297,12 @@ class TestMeetingDynamoDB:
         meetings_table.put_item(Item=item)
 
         # Verify retrieval
-        response = meetings_table.get_item(
-            Key={"meeting_id": "meeting-2", "user_id": "U123456"}
-        )
+        response = meetings_table.get_item(Key={"meeting_id": "meeting-2", "user_id": "U123456"})
         assert "Item" in response
 
     def test_meeting_from_dynamodb_roundtrip(self):
         """Test Meeting can be serialized and deserialized."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         original = Meeting(
             meeting_id="meeting-3",
             user_id="U123456",
@@ -339,7 +334,7 @@ class TestActionItemDynamoDB:
 
     def test_action_item_with_owner(self, action_items_table):
         """Test ActionItem with owner can be stored."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         action = ActionItem(
             action_id="action-1",
             meeting_id="meeting-1",
@@ -373,9 +368,7 @@ class TestActionItemDynamoDB:
         # Should store successfully
         action_items_table.put_item(Item=item)
 
-    def test_action_item_with_empty_string_owner_omits_field(
-        self, action_items_table
-    ):
+    def test_action_item_with_empty_string_owner_omits_field(self, action_items_table):
         """Test that empty string owner is omitted from DynamoDB item.
 
         Note: ActionItem.owner is Optional[str], but DynamoDB does not allow
@@ -459,7 +452,7 @@ class TestDynamoDBConstraints:
 
         # Meeting with empty strings in optional fields should work
         # (but we should use None instead)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         meeting = Meeting(
             meeting_id="m1",
             user_id="U1",
@@ -476,7 +469,7 @@ class TestDynamoDBConstraints:
 
     def test_datetime_serialization_is_consistent(self):
         """Verify all datetime fields are serialized to ISO format strings."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # ChatSession
         session = ChatSession(
@@ -504,7 +497,7 @@ class TestDynamoDBConstraints:
 
     def test_roundtrip_preserves_data(self):
         """Verify serialization and deserialization preserves data integrity."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Create ChatSession with various field types
         original = ChatSession(

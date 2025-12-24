@@ -109,7 +109,6 @@ class CalendarClient:
 
         # Sanitize user_id: only allow alphanumeric, dash, underscore
         # This prevents injection attacks in AWS Secrets Manager API calls
-        import re
 
         if not re.match(r"^[a-zA-Z0-9_-]+$", user_id):
             raise ValueError(

@@ -56,12 +56,15 @@ class SlackSignatureVerifier:
             raise ValueError("Request timestamp too old")
 
         # Compute expected signature
-        sig_basestring = f"v0:{timestamp}:{request_body}".encode("utf-8")
-        expected_signature = "v0=" + hmac.new(
-            self.signing_secret,
-            sig_basestring,
-            hashlib.sha256,
-        ).hexdigest()
+        sig_basestring = f"v0:{timestamp}:{request_body}".encode()
+        expected_signature = (
+            "v0="
+            + hmac.new(
+                self.signing_secret,
+                sig_basestring,
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         # Compare signatures (constant time comparison)
         is_valid = hmac.compare_digest(expected_signature, signature)
@@ -102,7 +105,10 @@ class SlackWebhookHandler:
         Returns:
             API Gateway response dict
         """
-        logger.debug("event=<%s> | processing slack webhook", event.get("requestContext", {}).get("requestId"))
+        logger.debug(
+            "event=<%s> | processing slack webhook",
+            event.get("requestContext", {}).get("requestId"),
+        )
 
         try:
             # Verify signature
@@ -176,10 +182,12 @@ class SlackWebhookHandler:
         else:
             return {
                 "statusCode": 200,
-                "body": json.dumps({
-                    "text": f"Unknown command: {command}",
-                    "response_type": "ephemeral",
-                }),
+                "body": json.dumps(
+                    {
+                        "text": f"Unknown command: {command}",
+                        "response_type": "ephemeral",
+                    }
+                ),
             }
 
     def handle_meetings_command(
@@ -213,10 +221,12 @@ class SlackWebhookHandler:
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
-            "body": json.dumps({
-                "response_type": "ephemeral",  # Only visible to user
-                "text": response_text,
-            }),
+            "body": json.dumps(
+                {
+                    "response_type": "ephemeral",  # Only visible to user
+                    "text": response_text,
+                }
+            ),
         }
 
     def handle_event(self, body: dict[str, Any]) -> dict[str, Any]:

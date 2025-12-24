@@ -10,8 +10,8 @@ This module tests:
 
 import json
 import sys
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
 from botocore.exceptions import ClientError
@@ -70,7 +70,6 @@ from exec_assistant.shared.calendar import (
     CalendarError,
     OAuthError,
 )
-from exec_assistant.shared.models import Meeting
 
 
 class TestCalendarClientInit:
@@ -195,16 +194,15 @@ class TestOAuthFlow:
         mock_credentials.refresh_token = "refresh-token-123"
         mock_credentials.scopes = client.scopes
 
-        with patch.object(client, "_create_flow") as mock_create_flow, patch.object(
-            client, "_save_credentials"
-        ) as mock_save:
+        with (
+            patch.object(client, "_create_flow") as mock_create_flow,
+            patch.object(client, "_save_credentials") as mock_save,
+        ):
             mock_flow = MagicMock()
             mock_flow.credentials = mock_credentials
             mock_create_flow.return_value = mock_flow
 
-            result = await client.handle_oauth_callback(
-                code="auth-code-123", state="user-123"
-            )
+            result = await client.handle_oauth_callback(code="auth-code-123", state="user-123")
 
             assert result["status"] == "connected"
             assert result["user_id"] == "user-123"
@@ -280,9 +278,10 @@ class TestTokenManagement:
 
         mock_response = {"SecretString": json.dumps(token_data)}
 
-        with patch.object(
-            client.secrets_manager, "get_secret_value", return_value=mock_response
-        ), patch("exec_assistant.shared.calendar.Credentials", MockCredentials):
+        with (
+            patch.object(client.secrets_manager, "get_secret_value", return_value=mock_response),
+            patch("exec_assistant.shared.calendar.Credentials", MockCredentials),
+        ):
             credentials = await client._load_credentials()
 
             assert credentials is not None
@@ -299,13 +298,9 @@ class TestTokenManagement:
             redirect_uri="https://example.com/callback",
         )
 
-        error = ClientError(
-            {"Error": {"Code": "ResourceNotFoundException"}}, "GetSecretValue"
-        )
+        error = ClientError({"Error": {"Code": "ResourceNotFoundException"}}, "GetSecretValue")
 
-        with patch.object(
-            client.secrets_manager, "get_secret_value", side_effect=error
-        ):
+        with patch.object(client.secrets_manager, "get_secret_value", side_effect=error):
             credentials = await client._load_credentials()
             assert credentials is None
 
@@ -321,9 +316,7 @@ class TestTokenManagement:
 
         error = ClientError({"Error": {"Code": "AccessDeniedException"}}, "GetSecretValue")
 
-        with patch.object(
-            client.secrets_manager, "get_secret_value", side_effect=error
-        ):
+        with patch.object(client.secrets_manager, "get_secret_value", side_effect=error):
             with pytest.raises(ClientError):
                 await client._load_credentials()
 
@@ -345,9 +338,7 @@ class TestTokenManagement:
         mock_credentials.client_secret = "test-secret"
         mock_credentials.scopes = client.scopes
 
-        with patch.object(
-            client.secrets_manager, "create_secret"
-        ) as mock_create:
+        with patch.object(client.secrets_manager, "create_secret") as mock_create:
             await client._save_credentials(mock_credentials)
 
             mock_create.assert_called_once()
@@ -374,15 +365,12 @@ class TestTokenManagement:
         mock_credentials.client_secret = "test-secret"
         mock_credentials.scopes = client.scopes
 
-        error = ClientError(
-            {"Error": {"Code": "ResourceExistsException"}}, "CreateSecret"
-        )
+        error = ClientError({"Error": {"Code": "ResourceExistsException"}}, "CreateSecret")
 
-        with patch.object(
-            client.secrets_manager, "create_secret", side_effect=error
-        ) as mock_create, patch.object(
-            client.secrets_manager, "update_secret"
-        ) as mock_update:
+        with (
+            patch.object(client.secrets_manager, "create_secret", side_effect=error) as mock_create,
+            patch.object(client.secrets_manager, "update_secret") as mock_update,
+        ):
             await client._save_credentials(mock_credentials)
 
             mock_create.assert_called_once()
@@ -437,9 +425,10 @@ class TestCalendarAPI:
             ]
         }
 
-        with patch.object(
-            client, "_load_credentials", return_value=mock_credentials
-        ), patch("exec_assistant.shared.calendar.build") as mock_build:
+        with (
+            patch.object(client, "_load_credentials", return_value=mock_credentials),
+            patch("exec_assistant.shared.calendar.build") as mock_build,
+        ):
             mock_service = MagicMock()
             mock_events_api = MagicMock()
             mock_list = MagicMock()
@@ -478,15 +467,12 @@ class TestCalendarAPI:
         )
         mock_credentials.expired = True
 
-        with patch.object(
-            client, "_load_credentials", return_value=mock_credentials
-        ), patch.object(
-            client, "_save_credentials"
-        ) as mock_save, patch(
-            "exec_assistant.shared.calendar.build"
-        ) as mock_build, patch.object(
-            mock_credentials, "refresh"
-        ) as mock_refresh:
+        with (
+            patch.object(client, "_load_credentials", return_value=mock_credentials),
+            patch.object(client, "_save_credentials") as mock_save,
+            patch("exec_assistant.shared.calendar.build") as mock_build,
+            patch.object(mock_credentials, "refresh") as mock_refresh,
+        ):
             mock_service = MagicMock()
             mock_events_api = MagicMock()
             mock_list = MagicMock()
@@ -522,11 +508,13 @@ class TestCalendarAPI:
         )
         mock_credentials.expired = True
 
-        with patch.object(client, "_load_credentials", return_value=mock_credentials), patch.object(
-            mock_credentials, "refresh", side_effect=Exception("Invalid refresh token")
+        with (
+            patch.object(client, "_load_credentials", return_value=mock_credentials),
+            patch.object(
+                mock_credentials, "refresh", side_effect=Exception("Invalid refresh token")
+            ),pytest.raises(APIError, match="Failed to refresh credentials")
         ):
-            with pytest.raises(APIError, match="Failed to refresh credentials"):
-                await client.fetch_upcoming_meetings()
+            await client.fetch_upcoming_meetings()
 
     @pytest.mark.asyncio
     async def test_fetch_upcoming_meetings_api_error(self) -> None:
@@ -541,17 +529,16 @@ class TestCalendarAPI:
         mock_credentials = MagicMock(spec=Credentials)
         mock_credentials.expired = False
 
-        with patch.object(
-            client, "_load_credentials", return_value=mock_credentials
-        ), patch("exec_assistant.shared.calendar.build") as mock_build:
+        with (
+            patch.object(client, "_load_credentials", return_value=mock_credentials),
+            patch("exec_assistant.shared.calendar.build") as mock_build,
+        ):
             mock_service = MagicMock()
             mock_response = MagicMock()
             mock_response.status = 403
             http_error = MockHttpError(resp=mock_response, content=b"Forbidden")
 
-            mock_service.events.return_value.list.return_value.execute.side_effect = (
-                http_error
-            )
+            mock_service.events.return_value.list.return_value.execute.side_effect = http_error
             mock_build.return_value = mock_service
 
             with pytest.raises(APIError, match="Calendar API request failed"):
@@ -570,9 +557,10 @@ class TestCalendarAPI:
         mock_credentials = MagicMock(spec=Credentials)
         mock_credentials.expired = False
 
-        with patch.object(
-            client, "_load_credentials", return_value=mock_credentials
-        ), patch("exec_assistant.shared.calendar.build") as mock_build:
+        with (
+            patch.object(client, "_load_credentials", return_value=mock_credentials),
+            patch("exec_assistant.shared.calendar.build") as mock_build,
+        ):
             mock_service = MagicMock()
             mock_events_api = MagicMock()
             mock_list = MagicMock()
@@ -582,9 +570,7 @@ class TestCalendarAPI:
             mock_service.events.return_value = mock_events_api
             mock_build.return_value = mock_service
 
-            await client.fetch_upcoming_meetings(
-                days_ahead=30, days_behind=7, max_results=50
-            )
+            await client.fetch_upcoming_meetings(days_ahead=30, days_behind=7, max_results=50)
 
             # Verify parameters were used
             call_kwargs = mock_events_api.list.call_args[1]
@@ -612,9 +598,10 @@ class TestCalendarAPI:
             "end": {"dateTime": "2025-04-01T12:00:00+00:00"},
         }
 
-        with patch.object(
-            client, "_load_credentials", return_value=mock_credentials
-        ), patch("exec_assistant.shared.calendar.build") as mock_build:
+        with (
+            patch.object(client, "_load_credentials", return_value=mock_credentials),
+            patch("exec_assistant.shared.calendar.build") as mock_build,
+        ):
             mock_service = MagicMock()
             mock_get = MagicMock()
             mock_get.execute.return_value = mock_event
@@ -641,17 +628,16 @@ class TestCalendarAPI:
         mock_credentials = MagicMock(spec=Credentials)
         mock_credentials.expired = False
 
-        with patch.object(
-            client, "_load_credentials", return_value=mock_credentials
-        ), patch("exec_assistant.shared.calendar.build") as mock_build:
+        with (
+            patch.object(client, "_load_credentials", return_value=mock_credentials),
+            patch("exec_assistant.shared.calendar.build") as mock_build,
+        ):
             mock_service = MagicMock()
             mock_response = MagicMock()
             mock_response.status = 404
             http_error = MockHttpError(resp=mock_response, content=b"Not Found")
 
-            mock_service.events.return_value.get.return_value.execute.side_effect = (
-                http_error
-            )
+            mock_service.events.return_value.get.return_value.execute.side_effect = http_error
             mock_build.return_value = mock_service
 
             meeting = await client.get_meeting_details("nonexistent")
@@ -689,9 +675,7 @@ class TestDisconnect:
             redirect_uri="https://example.com/callback",
         )
 
-        error = ClientError(
-            {"Error": {"Code": "ResourceNotFoundException"}}, "DeleteSecret"
-        )
+        error = ClientError({"Error": {"Code": "ResourceNotFoundException"}}, "DeleteSecret")
 
         with patch.object(client.secrets_manager, "delete_secret", side_effect=error):
             # Should not raise exception
@@ -930,9 +914,10 @@ class TestEdgeCases:
         mock_credentials = MagicMock(spec=Credentials)
         mock_credentials.expired = False
 
-        with patch.object(
-            client, "_load_credentials", return_value=mock_credentials
-        ), patch("exec_assistant.shared.calendar.build") as mock_build:
+        with (
+            patch.object(client, "_load_credentials", return_value=mock_credentials),
+            patch("exec_assistant.shared.calendar.build") as mock_build,
+        ):
             mock_service = MagicMock()
             mock_events_api = MagicMock()
             mock_list = MagicMock()
@@ -959,9 +944,10 @@ class TestEdgeCases:
         mock_credentials = MagicMock(spec=Credentials)
         mock_credentials.expired = False
 
-        with patch.object(
-            client, "_load_credentials", return_value=mock_credentials
-        ), patch("exec_assistant.shared.calendar.build") as mock_build:
+        with (
+            patch.object(client, "_load_credentials", return_value=mock_credentials),
+            patch("exec_assistant.shared.calendar.build") as mock_build,
+        ):
             mock_service = MagicMock()
             mock_events_api = MagicMock()
             mock_list = MagicMock()
@@ -995,7 +981,7 @@ class TestEdgeCases:
 
         assert meeting is not None
         # Should default to 1 hour after start
-        expected_end = datetime(2025, 1, 15, 15, 0, tzinfo=timezone.utc)
+        expected_end = datetime(2025, 1, 15, 15, 0, tzinfo=UTC)
         assert meeting.end_time == expected_end
 
 

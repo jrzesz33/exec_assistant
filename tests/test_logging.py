@@ -5,8 +5,6 @@ import os
 from io import StringIO
 from unittest.mock import patch
 
-import pytest
-
 from exec_assistant.shared.logging import get_logger
 
 
@@ -121,9 +119,7 @@ class TestLoggingOutput:
         # Create a string buffer to capture output
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         # Clear existing handlers and add our test handler
         logger.handlers.clear()
@@ -143,9 +139,7 @@ class TestLoggingOutput:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -163,9 +157,7 @@ class TestLoggingOutput:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -183,9 +175,7 @@ class TestLoggingOutput:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -207,9 +197,7 @@ class TestLoggingLevels:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -224,9 +212,7 @@ class TestLoggingLevels:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -241,9 +227,7 @@ class TestLoggingLevels:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -258,9 +242,7 @@ class TestLoggingLevels:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -279,9 +261,7 @@ class TestStructuredLoggingPatterns:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -300,9 +280,7 @@ class TestStructuredLoggingPatterns:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -326,9 +304,7 @@ class TestStructuredLoggingPatterns:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -350,9 +326,7 @@ class TestExceptionLogging:
 
         log_stream = StringIO()
         handler = logging.StreamHandler(log_stream)
-        handler.setFormatter(
-            logging.Formatter("[%(levelname)s] %(name)s | %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(levelname)s] %(name)s | %(message)s"))
 
         logger.handlers.clear()
         logger.addHandler(handler)
@@ -361,9 +335,7 @@ class TestExceptionLogging:
         try:
             raise ValueError("Test exception")
         except ValueError as e:
-            logger.error(
-                "error=<%s> | unexpected error occurred", str(e), exc_info=True
-            )
+            logger.error("error=<%s> | unexpected error occurred", str(e), exc_info=True)
 
         log_output = log_stream.getvalue()
         assert "error=<Test exception>" in log_output

@@ -5,8 +5,9 @@ ensuring they don't regress in future changes.
 """
 
 import os
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from exec_assistant.agents.meeting_coordinator import run_meeting_coordinator
 
@@ -121,9 +122,7 @@ class TestBugFixes:
             mock_response.message = test_case["message"]
             mock_response.stop_reason = test_case["stop_reason"]
 
-            with patch(
-                "exec_assistant.agents.meeting_coordinator.create_agent"
-            ) as mock_create:
+            with patch("exec_assistant.agents.meeting_coordinator.create_agent") as mock_create:
                 mock_agent = MagicMock()
                 mock_agent.invoke_async = AsyncMock(return_value=mock_response)
                 mock_create.return_value = mock_agent
@@ -206,8 +205,9 @@ class TestRegressionPrevention:
         Common mistake: Using f-strings in logging which prevents structured logging.
         Correct: Use %s placeholders.
         """
-        from exec_assistant.agents import meeting_coordinator
         import inspect
+
+        from exec_assistant.agents import meeting_coordinator
 
         # Read source code
         source = inspect.getsource(meeting_coordinator)
@@ -226,12 +226,13 @@ class TestRegressionPrevention:
 
         This prevents regressions where type annotations are accidentally removed.
         """
+        import inspect
+
         from exec_assistant.agents.meeting_coordinator import (
-            run_meeting_coordinator,
             create_agent,
             create_session_manager,
+            run_meeting_coordinator,
         )
-        import inspect
 
         functions_to_check = [
             run_meeting_coordinator,
@@ -243,18 +244,18 @@ class TestRegressionPrevention:
             sig = inspect.signature(func)
 
             # Check return annotation
-            assert (
-                sig.return_annotation != inspect.Parameter.empty
-            ), f"{func.__name__} missing return type annotation"
+            assert sig.return_annotation != inspect.Parameter.empty, (
+                f"{func.__name__} missing return type annotation"
+            )
 
             # Check parameter annotations
             for param_name, param in sig.parameters.items():
                 if param_name in ["args", "kwargs"]:
                     continue  # *args, **kwargs don't need annotations
 
-                assert (
-                    param.annotation != inspect.Parameter.empty
-                ), f"{func.__name__} parameter '{param_name}' missing type annotation"
+                assert param.annotation != inspect.Parameter.empty, (
+                    f"{func.__name__} parameter '{param_name}' missing type annotation"
+                )
 
     async def test_docstrings_present(self):
         """Ensure all public functions have docstrings.
@@ -262,10 +263,10 @@ class TestRegressionPrevention:
         This prevents regressions where docstrings are accidentally removed.
         """
         from exec_assistant.agents.meeting_coordinator import (
-            run_meeting_coordinator,
             create_agent,
             create_session_manager,
             get_upcoming_meetings,
+            run_meeting_coordinator,
             save_prep_response,
         )
 
