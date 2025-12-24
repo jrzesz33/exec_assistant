@@ -4,7 +4,7 @@ Handles creation, verification, and refresh of JSON Web Tokens for authenticatio
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -77,7 +77,7 @@ class JWTHandler:
         if expires_delta is None:
             expires_delta = timedelta(minutes=self.access_token_expire_minutes)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expire = now + expires_delta
 
         payload: dict[str, Any] = {
@@ -119,7 +119,7 @@ class JWTHandler:
         if expires_delta is None:
             expires_delta = timedelta(days=self.refresh_token_expire_days)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expire = now + expires_delta
 
         payload: dict[str, Any] = {
@@ -168,8 +168,7 @@ class JWTHandler:
             # Check token type if specified
             if expected_type and token_payload.token_type != expected_type:
                 msg = (
-                    f"Invalid token type: expected {expected_type}, "
-                    f"got {token_payload.token_type}"
+                    f"Invalid token type: expected {expected_type}, got {token_payload.token_type}"
                 )
                 logger.warning(
                     "expected_type=<%s>, actual_type=<%s> | token type mismatch",
@@ -264,7 +263,7 @@ class JWTHandler:
                 options={"verify_signature": False},
             )
             exp = payload.get("exp", 0)
-            now = datetime.now(timezone.utc).timestamp()
+            now = datetime.now(UTC).timestamp()
             return now > exp
 
         except Exception:

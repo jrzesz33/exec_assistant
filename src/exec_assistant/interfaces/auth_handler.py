@@ -6,6 +6,7 @@ Handles Google OAuth login, callback, token refresh, and user info endpoints.
 import json
 import logging
 import os
+from datetime import UTC
 from typing import Any
 
 import boto3
@@ -129,10 +130,10 @@ def get_or_create_user(
 
         # Create new user
         import uuid
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         user_id = str(uuid.uuid4())
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         user = {
             "user_id": user_id,
@@ -255,7 +256,9 @@ def handle_callback(event: dict[str, Any], context: Any) -> dict[str, Any]:
         )
 
         # Redirect to frontend with tokens
-        frontend_redirect = f"{FRONTEND_URL}?access_token={access_token_jwt}&refresh_token={refresh_token_jwt}"
+        frontend_redirect = (
+            f"{FRONTEND_URL}?access_token={access_token_jwt}&refresh_token={refresh_token_jwt}"
+        )
 
         return {
             "statusCode": 302,

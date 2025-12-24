@@ -1,13 +1,12 @@
 """Pytest configuration and fixtures for agent testing."""
 
-import os
 import shutil
 from pathlib import Path
 
 import pytest
 from moto import mock_aws
 
-from tests.test_utils import set_local_test_env, create_test_dynamodb_tables
+from tests.test_utils import create_test_dynamodb_tables, set_local_test_env
 
 
 @pytest.fixture(scope="session", autouse=True)

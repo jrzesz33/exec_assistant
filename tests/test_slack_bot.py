@@ -34,12 +34,15 @@ class TestSlackSignatureVerifier:
         timestamp = str(int(time.time()))
         body = "test request body"
 
-        sig_basestring = f"v0:{timestamp}:{body}".encode("utf-8")
-        signature = "v0=" + hmac.new(
-            verifier.signing_secret,
-            sig_basestring,
-            hashlib.sha256,
-        ).hexdigest()
+        sig_basestring = f"v0:{timestamp}:{body}".encode()
+        signature = (
+            "v0="
+            + hmac.new(
+                verifier.signing_secret,
+                sig_basestring,
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         # Should verify successfully
         assert verifier.verify(body, timestamp, signature) is True
@@ -85,10 +88,12 @@ class TestSlackWebhookHandler:
     ) -> None:
         """Test handling Slack URL verification challenge."""
         event = {
-            "body": json.dumps({
-                "type": "url_verification",
-                "challenge": "test_challenge_string",
-            }),
+            "body": json.dumps(
+                {
+                    "type": "url_verification",
+                    "challenge": "test_challenge_string",
+                }
+            ),
         }
         context = MagicMock()
 
@@ -104,11 +109,13 @@ class TestSlackWebhookHandler:
     ) -> None:
         """Test handling /meetings slash command."""
         event = {
-            "body": json.dumps({
-                "command": "/meetings",
-                "user_id": "U12345",
-                "channel_id": "C67890",
-            }),
+            "body": json.dumps(
+                {
+                    "command": "/meetings",
+                    "user_id": "U12345",
+                    "channel_id": "C67890",
+                }
+            ),
         }
         context = MagicMock()
 
@@ -126,11 +133,13 @@ class TestSlackWebhookHandler:
     ) -> None:
         """Test handling unknown slash command."""
         event = {
-            "body": json.dumps({
-                "command": "/unknown",
-                "user_id": "U12345",
-                "channel_id": "C67890",
-            }),
+            "body": json.dumps(
+                {
+                    "command": "/unknown",
+                    "user_id": "U12345",
+                    "channel_id": "C67890",
+                }
+            ),
         }
         context = MagicMock()
 
@@ -146,15 +155,17 @@ class TestSlackWebhookHandler:
     ) -> None:
         """Test handling direct message event."""
         event = {
-            "body": json.dumps({
-                "event": {
-                    "type": "message",
-                    "channel_type": "im",
-                    "user": "U12345",
-                    "text": "Hello bot!",
-                    "channel": "D12345",
-                },
-            }),
+            "body": json.dumps(
+                {
+                    "event": {
+                        "type": "message",
+                        "channel_type": "im",
+                        "user": "U12345",
+                        "text": "Hello bot!",
+                        "channel": "D12345",
+                    },
+                }
+            ),
         }
         context = MagicMock()
 
@@ -171,18 +182,22 @@ class TestSlackWebhookHandler:
     ) -> None:
         """Test handling interactive message (button click)."""
         event = {
-            "body": json.dumps({
-                "payload": json.dumps({
-                    "type": "block_actions",
-                    "user": {"id": "U12345"},
-                    "actions": [
+            "body": json.dumps(
+                {
+                    "payload": json.dumps(
                         {
-                            "action_id": "start_prep",
-                            "value": "meeting-123",
+                            "type": "block_actions",
+                            "user": {"id": "U12345"},
+                            "actions": [
+                                {
+                                    "action_id": "start_prep",
+                                    "value": "meeting-123",
+                                }
+                            ],
                         }
-                    ],
-                }),
-            }),
+                    ),
+                }
+            ),
         }
         context = MagicMock()
 
@@ -253,12 +268,15 @@ class TestSlackWebhookHandlerWithVerification:
         timestamp = str(int(time.time()))
         body = json.dumps(body_dict)
 
-        sig_basestring = f"v0:{timestamp}:{body}".encode("utf-8")
-        signature = "v0=" + hmac.new(
-            signing_secret.encode("utf-8"),
-            sig_basestring,
-            hashlib.sha256,
-        ).hexdigest()
+        sig_basestring = f"v0:{timestamp}:{body}".encode()
+        signature = (
+            "v0="
+            + hmac.new(
+                signing_secret.encode("utf-8"),
+                sig_basestring,
+                hashlib.sha256,
+            ).hexdigest()
+        )
 
         return {
             "body": body,

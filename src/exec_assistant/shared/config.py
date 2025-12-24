@@ -13,7 +13,6 @@ Usage:
 """
 
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +57,9 @@ class Settings(BaseSettings):
     calendar_api_type: str = Field(default="google")  # or "microsoft"
     google_calendar_oauth_client_id: str | None = None
     google_calendar_oauth_client_secret: str | None = None
-    google_calendar_credentials_path: str = Field(default="~/.credentials/calendar_credentials.json")
+    google_calendar_credentials_path: str = Field(
+        default="~/.credentials/calendar_credentials.json"
+    )
     google_calendar_token_path: str = Field(default="~/.credentials/calendar_token.json")
 
     # Microsoft Graph (alternative)

@@ -6,7 +6,7 @@ This module provides helpers for testing Strands agents in local development.
 import os
 import uuid
 from typing import Any
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import boto3
 from moto import mock_aws

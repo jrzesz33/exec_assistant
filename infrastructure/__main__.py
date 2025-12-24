@@ -105,18 +105,23 @@ if enable_phase_1_5 and PHASE_1_5_AVAILABLE:
     # This ensures the auth Lambda gets the correct OAuth redirect URI
     from api import create_auth_and_api_gateway
 
-    auth_lambda, api, api_endpoint = create_auth_and_api_gateway(
+    auth_lambda, calendar_lambda, api, api_endpoint = create_auth_and_api_gateway(
         environment, lambda_role, tables["users"], config, agent_lambda
     )
 
     pulumi.export("auth_lambda_arn", auth_lambda.arn)
     pulumi.export("auth_lambda_name", auth_lambda.name)
+    pulumi.export("calendar_lambda_arn", calendar_lambda.arn)
+    pulumi.export("calendar_lambda_name", calendar_lambda.name)
     pulumi.export("api_id", api.id)
     pulumi.export("api_endpoint", api_endpoint)
 
-    # Export the OAuth redirect URI for reference
+    # Export the OAuth redirect URIs for reference
     oauth_redirect_uri = api_endpoint.apply(lambda endpoint: f"{endpoint}/auth/callback")
     pulumi.export("oauth_redirect_uri", oauth_redirect_uri)
+
+    calendar_redirect_uri = api_endpoint.apply(lambda endpoint: f"{endpoint}/calendar/callback")
+    pulumi.export("calendar_redirect_uri", calendar_redirect_uri)
 
     # Create UI bucket for static website hosting
     ui_bucket, ui_website_url = create_ui_bucket(environment)

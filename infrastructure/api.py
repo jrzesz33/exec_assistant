@@ -132,6 +132,10 @@ def create_lambda_policy(
                         "Effect": "Allow",
                         "Action": [
                             "secretsmanager:GetSecretValue",
+                            "secretsmanager:CreateSecret",
+                            "secretsmanager:UpdateSecret",
+                            "secretsmanager:DeleteSecret",
+                            "secretsmanager:PutSecretValue",
                         ],
                         "Resource": "*",  # Will narrow down in production
                     },
@@ -316,6 +320,138 @@ def create_auth_lambda(
     )
 
     return auth_lambda
+
+
+def create_calendar_lambda(
+    environment: str,
+    role: aws.iam.Role,
+    users_table: aws.dynamodb.Table,
+    config: pulumi.Config,
+    api_endpoint: pulumi.Output[str] | None = None,
+) -> aws.lambda_.Function:
+    """Create Lambda function for calendar OAuth endpoints.
+
+    Args:
+        environment: Environment name
+        role: Lambda IAM role
+        users_table: Users DynamoDB table
+        config: Pulumi configuration
+        api_endpoint: Optional API Gateway endpoint URL (Pulumi Output)
+
+    Returns:
+        Lambda function resource
+    """
+    # Create CloudWatch log group
+    log_group = aws.cloudwatch.LogGroup(
+        f"exec-assistant-calendar-lambda-logs-{environment}",
+        name=f"/aws/lambda/exec-assistant-calendar-{environment}",
+        retention_in_days=7 if environment == "dev" else 30,
+        tags={
+            "Environment": environment,
+            "Project": "exec-assistant",
+            "ManagedBy": "pulumi",
+        },
+    )
+
+    # Get config values
+    google_calendar_client_id = config.require_secret("google_calendar_client_id")
+    google_calendar_client_secret = config.require_secret("google_calendar_client_secret")
+    jwt_secret_key = config.require_secret("jwt_secret_key") if config.get_secret("jwt_secret_key") else pulumi.Output.secret("changeme-generate-secure-key")
+
+    # Construct redirect URI from API endpoint
+    if api_endpoint:
+        redirect_uri = api_endpoint.apply(lambda endpoint: f"{endpoint}/calendar/callback")
+    else:
+        redirect_uri = config.get("google_calendar_redirect_uri") or "https://placeholder.com/calendar/callback"
+
+    # Build Lambda deployment package with dependencies
+    import subprocess
+    import shutil
+
+    # Create deployment package
+    package_dir = Path(__file__).parent / ".lambda_build_calendar"
+    package_dir.mkdir(exist_ok=True)
+
+    # Copy source code
+    src_dir = Path(__file__).parent.parent / "src" / "exec_assistant"
+
+    # Copy relevant modules
+    for module in ["shared", "interfaces"]:
+        src_module = src_dir / module
+        dest_module = package_dir / "exec_assistant" / module
+        if dest_module.exists():
+            shutil.rmtree(dest_module)
+        if src_module.exists():
+            shutil.copytree(src_module, dest_module)
+
+    # Create __init__.py files
+    (package_dir / "exec_assistant").mkdir(exist_ok=True)
+    (package_dir / "exec_assistant" / "__init__.py").touch()
+
+    # Install dependencies to package directory
+    requirements = [
+        "pydantic>=2.0",
+        "requests",
+        "pyjwt",
+        "google-auth",
+        "google-auth-oauthlib",
+        "google-auth-httplib2",
+        "google-api-python-client",
+    ]
+
+    print(f"Installing calendar Lambda dependencies to {package_dir}...")
+    subprocess.run(
+        [
+            "pip",
+            "install",
+            "--target",
+            str(package_dir),
+            "--upgrade",
+            "--no-user",
+        ] + requirements,
+        check=True,
+        capture_output=True,
+    )
+
+    # Use the package directory as Lambda code
+    lambda_code = pulumi.AssetArchive(
+        {
+            ".": pulumi.FileArchive(str(package_dir)),
+        }
+    )
+
+    # Build environment variables dict
+    env_vars = {
+        "USERS_TABLE_NAME": users_table.name,
+        "GOOGLE_CALENDAR_CLIENT_ID": google_calendar_client_id,
+        "GOOGLE_CALENDAR_CLIENT_SECRET": google_calendar_client_secret,
+        "GOOGLE_CALENDAR_REDIRECT_URI": redirect_uri,
+        "JWT_SECRET_KEY": jwt_secret_key,
+        "AWS_REGION": config.get("aws_region") or "us-east-1",
+        "ENV": environment,  # Set to 'dev', 'staging', or 'prod' (NOT 'local')
+    }
+
+    # Create Lambda function
+    calendar_lambda = aws.lambda_.Function(
+        f"exec-assistant-calendar-{environment}",
+        name=f"exec-assistant-calendar-{environment}",
+        role=role.arn,
+        runtime="python3.13",
+        handler="exec_assistant.interfaces.calendar_handler.lambda_handler",
+        code=lambda_code,
+        timeout=30,
+        memory_size=512,
+        environment=aws.lambda_.FunctionEnvironmentArgs(
+            variables=env_vars,
+        ),
+        tags={
+            "Environment": environment,
+            "Project": "exec-assistant",
+            "ManagedBy": "pulumi",
+        },
+    )
+
+    return calendar_lambda
 
 
 def create_agent_lambda(
@@ -560,15 +696,15 @@ def create_auth_and_api_gateway(
     users_table: aws.dynamodb.Table,
     config: pulumi.Config,
     agent_lambda: aws.lambda_.Function | None = None,
-) -> tuple[aws.lambda_.Function, aws.apigatewayv2.Api, pulumi.Output[str]]:
-    """Create authentication Lambda and API Gateway with proper redirect URI configuration.
+) -> tuple[aws.lambda_.Function, aws.lambda_.Function, aws.apigatewayv2.Api, pulumi.Output[str]]:
+    """Create authentication and calendar Lambdas and API Gateway with proper redirect URI configuration.
 
-    This function solves the circular dependency between auth Lambda and API Gateway:
-    - Auth Lambda needs API Gateway endpoint for OAuth redirect URI
-    - API Gateway needs auth Lambda ARN for integration
+    This function solves the circular dependency between Lambdas and API Gateway:
+    - Auth/Calendar Lambdas need API Gateway endpoint for OAuth redirect URIs
+    - API Gateway needs Lambda ARNs for integration
 
-    Solution: Create a temporary API resource to get the endpoint, then create auth Lambda
-    with that endpoint, then complete the API Gateway setup.
+    Solution: Create the API resource first to get the endpoint, then create Lambdas
+    with that endpoint, then complete the API Gateway setup with routes.
 
     Args:
         environment: Environment name
@@ -578,7 +714,7 @@ def create_auth_and_api_gateway(
         agent_lambda: Optional agent Lambda function
 
     Returns:
-        Tuple of (auth Lambda, API Gateway, API endpoint URL)
+        Tuple of (auth Lambda, calendar Lambda, API Gateway, API endpoint URL)
     """
     # Step 1: Create API Gateway resource first (without routes)
     api = aws.apigatewayv2.Api(
@@ -602,6 +738,11 @@ def create_auth_and_api_gateway(
 
     # Step 2: Create auth Lambda with the API endpoint for redirect URI
     auth_lambda = create_auth_lambda(
+        environment, lambda_role, users_table, config, api_endpoint
+    )
+
+    # Step 2b: Create calendar Lambda with the API endpoint for redirect URI
+    calendar_lambda = create_calendar_lambda(
         environment, lambda_role, users_table, config, api_endpoint
     )
 
@@ -671,6 +812,39 @@ def create_auth_and_api_gateway(
             source_arn=api.execution_arn.apply(lambda arn: f"{arn}/*/*"),
         )
 
+    # Step 4b: Create calendar integration and routes
+    calendar_integration = aws.apigatewayv2.Integration(
+        f"exec-assistant-calendar-integration-{environment}",
+        api_id=api.id,
+        integration_type="AWS_PROXY",
+        integration_uri=calendar_lambda.arn,
+        payload_format_version="2.0",
+    )
+
+    # Create calendar routes
+    calendar_routes = [
+        ("GET", "/calendar/auth"),  # Protected with JWT
+        ("GET", "/calendar/callback"),  # Public OAuth callback
+        ("POST", "/calendar/disconnect"),  # Protected with JWT
+    ]
+
+    for method, path in calendar_routes:
+        aws.apigatewayv2.Route(
+            f"exec-assistant-{method.lower()}-{path.replace('/', '-')}-{environment}",
+            api_id=api.id,
+            route_key=f"{method} {path}",
+            target=calendar_integration.id.apply(lambda id: f"integrations/{id}"),
+        )
+
+    # Grant API Gateway permission to invoke calendar Lambda
+    aws.lambda_.Permission(
+        f"exec-assistant-api-calendar-lambda-permission-{environment}",
+        action="lambda:InvokeFunction",
+        function=calendar_lambda.name,
+        principal="apigateway.amazonaws.com",
+        source_arn=api.execution_arn.apply(lambda arn: f"{arn}/*/*"),
+    )
+
     # Step 5: Create stage (auto-deploy)
     stage = aws.apigatewayv2.Stage(
         f"exec-assistant-api-stage-{environment}",
@@ -684,7 +858,7 @@ def create_auth_and_api_gateway(
         },
     )
 
-    return auth_lambda, api, api_endpoint
+    return auth_lambda, calendar_lambda, api, api_endpoint
 
 
 def create_ui_bucket(environment: str) -> tuple[aws.s3.Bucket, str]:

@@ -10,7 +10,7 @@ authors = [
 ]
 dependencies = [
     # Strands Agent SDK
-    "strands-sdk>=0.1.0",
+    # "strands-sdk>=0.1.0",  # Temporarily commented for testing
 
     # AWS SDK and services
     "boto3>=1.34.0",
