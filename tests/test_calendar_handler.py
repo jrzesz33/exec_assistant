@@ -9,7 +9,6 @@ This module tests the calendar OAuth endpoints including:
 import json
 import os
 from datetime import UTC, datetime
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -50,10 +49,11 @@ def sample_user():
     """Create a sample user."""
     return User(
         user_id="test-user-123",
+        google_id="google-123456",
         email="test@example.com",
         name="Test User",
         created_at=datetime.now(UTC),
-        is_calendar_connected=False,
+        calendar_connected=False,
         calendar_refresh_token=None,
     )
 
@@ -61,27 +61,59 @@ def sample_user():
 @pytest.fixture
 def mock_dynamodb(sample_user):
     """Mock DynamoDB resource."""
+    # Reset global cache before each test
+    import exec_assistant.interfaces.calendar_handler as handler_module
+
+    handler_module._dynamodb = None
+
     mock_db = MagicMock()
     mock_table = MagicMock()
     mock_db.Table.return_value = mock_table
 
-    # Default: return sample user
-    mock_table.get_item.return_value = {"Item": sample_user.to_dynamodb()}
+    # Create a custom get_item that returns fresh data by default
+    # but allows tests to override with specific return values
+    _override_return_value = None
+
+    def get_item_impl(*args, **kwargs):
+        # If test has set a specific return value, use it
+        if _override_return_value is not None:
+            return _override_return_value
+        # Otherwise return a fresh copy to prevent mutation issues
+        return {"Item": sample_user.to_dynamodb()}
+
+    # Helper function for tests to override the return value
+    def set_return_value(value):
+        nonlocal _override_return_value
+        _override_return_value = value
+
+    mock_table.get_item = MagicMock(side_effect=get_item_impl)
+    mock_table.get_item.set_return_value = set_return_value
 
     with patch("exec_assistant.interfaces.calendar_handler.boto3.resource") as mock_boto:
         mock_boto.return_value = mock_db
         yield mock_table
 
+    # Clean up global cache after test
+    handler_module._dynamodb = None
+
 
 @pytest.fixture
 def mock_jwt_handler():
     """Mock JWT handler."""
+    # Reset global cache before each test
+    import exec_assistant.interfaces.calendar_handler as handler_module
+
+    handler_module._jwt_handler = None
+
     mock_handler = MagicMock()
     mock_handler.verify_token.return_value = "test-user-123"
 
     with patch("exec_assistant.interfaces.calendar_handler.JWTHandler") as mock_jwt:
         mock_jwt.return_value = mock_handler
         yield mock_handler
+
+    # Clean up global cache after test
+    handler_module._jwt_handler = None
 
 
 @pytest.fixture
@@ -177,7 +209,7 @@ class TestHelperFunctions:
 
     def test_get_user_from_db_not_found(self, mock_env_vars, mock_dynamodb):
         """Test getting user that doesn't exist."""
-        mock_dynamodb.get_item.return_value = {}
+        mock_dynamodb.get_item.set_return_value({})
         user = get_user_from_db("nonexistent-user")
 
         assert user is None
@@ -192,16 +224,18 @@ class TestHelperFunctions:
         # Verify user was updated
         mock_dynamodb.put_item.assert_called_once()
         saved_item = mock_dynamodb.put_item.call_args[1]["Item"]
-        assert saved_item["is_calendar_connected"] is True
+        assert saved_item["calendar_connected"] is True
         assert saved_item["calendar_refresh_token"] == "refresh-123"
 
-    def test_update_user_calendar_status_disconnect(self, mock_env_vars, mock_dynamodb, sample_user):
+    def test_update_user_calendar_status_disconnect(
+        self, mock_env_vars, mock_dynamodb, sample_user
+    ):
         """Test updating user calendar status to disconnected."""
         update_user_calendar_status("test-user-123", connected=False)
 
         mock_dynamodb.put_item.assert_called_once()
         saved_item = mock_dynamodb.put_item.call_args[1]["Item"]
-        assert saved_item["is_calendar_connected"] is False
+        assert saved_item["calendar_connected"] is False
         assert saved_item["calendar_refresh_token"] is None
 
 
@@ -263,7 +297,7 @@ class TestHandleCalendarAuth:
 
     def test_user_not_found(self, mock_env_vars, mock_jwt_handler, mock_dynamodb):
         """Test auth initiation when user not found."""
-        mock_dynamodb.get_item.return_value = {}
+        mock_dynamodb.get_item.set_return_value({})
 
         event = {
             "path": "/calendar/auth",
@@ -348,8 +382,9 @@ class TestHandleCalendarCallback:
         response = handle_calendar_callback(event, None)
 
         assert response["statusCode"] == 400
-        body = json.loads(response["body"])
-        assert "error" in body
+        assert "text/html" in response["headers"]["Content-Type"]
+        assert "Invalid Request" in response["body"]
+        assert "Missing authorization code" in response["body"]
 
     def test_missing_state(self, mock_env_vars, mock_calendar_client, mock_dynamodb):
         """Test callback with missing state."""
@@ -364,8 +399,9 @@ class TestHandleCalendarCallback:
         response = handle_calendar_callback(event, None)
 
         assert response["statusCode"] == 400
-        body = json.loads(response["body"])
-        assert "error" in body
+        assert "text/html" in response["headers"]["Content-Type"]
+        assert "Invalid Request" in response["body"]
+        assert "Missing state parameter" in response["body"]
 
     def test_oauth_error_from_google(self, mock_env_vars, mock_calendar_client, mock_dynamodb):
         """Test callback with OAuth error from Google."""
@@ -380,9 +416,9 @@ class TestHandleCalendarCallback:
 
         response = handle_calendar_callback(event, None)
 
-        assert response["statusCode"] == 200
+        assert response["statusCode"] == 400
         assert "text/html" in response["headers"]["Content-Type"]
-        assert "Authorization Failed" in response["body"]
+        assert "Calendar Connection Failed" in response["body"]
         assert "access_denied" in response["body"]
 
     def test_calendar_callback_error(
@@ -406,8 +442,8 @@ class TestHandleCalendarCallback:
         response = handle_calendar_callback(event, None)
 
         assert response["statusCode"] == 500
-        body = json.loads(response["body"])
-        assert "error" in body
+        assert "text/html" in response["headers"]["Content-Type"]
+        assert "Unexpected Error" in response["body"]
 
     def test_no_query_parameters(self, mock_env_vars, mock_calendar_client, mock_dynamodb):
         """Test callback with no query parameters."""
@@ -419,8 +455,8 @@ class TestHandleCalendarCallback:
         response = handle_calendar_callback(event, None)
 
         assert response["statusCode"] == 400
-        body = json.loads(response["body"])
-        assert "error" in body
+        assert "text/html" in response["headers"]["Content-Type"]
+        assert "Invalid Request" in response["body"]
 
 
 class TestHandleCalendarDisconnect:
@@ -480,7 +516,7 @@ class TestHandleCalendarDisconnect:
 
     def test_user_not_found(self, mock_env_vars, mock_jwt_handler, mock_dynamodb):
         """Test disconnect when user not found."""
-        mock_dynamodb.get_item.return_value = {}
+        mock_dynamodb.get_item.set_return_value({})
 
         event = {
             "path": "/calendar/disconnect",
@@ -653,10 +689,9 @@ class TestGlobalCaching:
 
     def test_dynamodb_caching(self, mock_env_vars):
         """Test DynamoDB client is cached."""
-        from exec_assistant.interfaces.calendar_handler import _dynamodb, get_dynamodb
-
         # Reset global
         import exec_assistant.interfaces.calendar_handler as handler_module
+        from exec_assistant.interfaces.calendar_handler import get_dynamodb
 
         handler_module._dynamodb = None
 
@@ -675,10 +710,9 @@ class TestGlobalCaching:
 
     def test_jwt_handler_caching(self, mock_env_vars):
         """Test JWT handler is cached."""
-        from exec_assistant.interfaces.calendar_handler import _jwt_handler, get_jwt_handler
-
         # Reset global
         import exec_assistant.interfaces.calendar_handler as handler_module
+        from exec_assistant.interfaces.calendar_handler import get_jwt_handler
 
         handler_module._jwt_handler = None
 
@@ -760,6 +794,11 @@ class TestEdgeCases:
 
     def test_dynamodb_connection_error(self, mock_env_vars, mock_jwt_handler):
         """Test handling DynamoDB connection errors."""
+        # Reset global cache to force recreation
+        import exec_assistant.interfaces.calendar_handler as handler_module
+
+        handler_module._dynamodb = None
+
         with patch("exec_assistant.interfaces.calendar_handler.boto3.resource") as mock_boto:
             mock_boto.side_effect = Exception("DynamoDB connection failed")
 

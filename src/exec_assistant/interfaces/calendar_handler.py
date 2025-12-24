@@ -30,7 +30,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError
 
-from exec_assistant.shared.calendar import CalendarClient, CalendarError, OAuthError
+from exec_assistant.shared.calendar import CalendarClient, OAuthError
 from exec_assistant.shared.jwt_handler import JWTHandler
 from exec_assistant.shared.logging import get_logger
 from exec_assistant.shared.models import User
@@ -93,37 +93,49 @@ def create_response(
     }
 
 
-def create_error_response(status_code: int, message: str) -> dict[str, Any]:
+def create_error_response(
+    status_code: int,
+    message: str,
+    details: str | None = None,
+) -> dict[str, Any]:
     """Create error response.
 
     Args:
         status_code: HTTP status code
         message: User-friendly error message
+        details: Optional additional error details
 
     Returns:
         API Gateway error response
     """
-    return create_response(status_code, {"error": message})
+    body = {"error": message}
+    if details is not None:
+        body["details"] = details
+    return create_response(status_code, body)
 
 
-def extract_token_from_header(headers: dict[str, str]) -> str | None:
+def extract_token_from_header(headers: dict[str, str] | None) -> str | None:
     """Extract JWT token from Authorization header.
 
     Args:
-        headers: Request headers dict
+        headers: Request headers dict (can be None)
 
     Returns:
-        JWT token or None if not found
+        JWT token or None if not found or invalid format
     """
+    if headers is None:
+        return None
+
     auth_header = headers.get("authorization") or headers.get("Authorization")
     if not auth_header:
         return None
 
-    # Handle "Bearer <token>" format
+    # Only accept "Bearer <token>" format
     if auth_header.startswith("Bearer "):
         return auth_header[7:]
 
-    return auth_header
+    # Invalid format (not Bearer)
+    return None
 
 
 def get_user_from_db(user_id: str) -> User | None:
