@@ -427,7 +427,7 @@ def create_calendar_lambda(
         "GOOGLE_CALENDAR_CLIENT_SECRET": google_calendar_client_secret,
         "GOOGLE_CALENDAR_REDIRECT_URI": redirect_uri,
         "JWT_SECRET_KEY": jwt_secret_key,
-        "AWS_REGION": config.get("aws_region") or "us-east-1",
+        #"AWS_REGION": config.get("aws_region") or "us-east-1",
         "ENV": environment,  # Set to 'dev', 'staging', or 'prod' (NOT 'local')
     }
 

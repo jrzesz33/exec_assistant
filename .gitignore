@@ -29,7 +29,7 @@ ENV/
 infrastructure/__pycache__/
 infrastructure/.lambda_build/
 infrastructure/.lambda_build_agent/
-
+infrastructure/.lambda_build_calendar/
 # IDEs
 .vscode/
 .idea/
