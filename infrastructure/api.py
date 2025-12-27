@@ -216,7 +216,7 @@ def create_auth_lambda(
         Lambda function resource
     """
     # Create CloudWatch log group
-    log_group = aws.cloudwatch.LogGroup(
+    _log_group = aws.cloudwatch.LogGroup(
         f"exec-assistant-auth-lambda-logs-{environment}",
         name=f"/aws/lambda/exec-assistant-auth-{environment}",
         retention_in_days=7 if environment == "dev" else 30,
@@ -245,7 +245,6 @@ def create_auth_lambda(
     # Build Lambda deployment package with dependencies
     import subprocess
     import shutil
-    import tempfile
 
     # Create deployment package
     package_dir = Path(__file__).parent / ".lambda_build"
@@ -259,7 +258,7 @@ def create_auth_lambda(
         src_module = src_dir / module
         dest_module = package_dir / "exec_assistant" / module
         if dest_module.exists():
-            shutil.rmtree(dest_module)
+            shutil.rmtree(dest_module, ignore_errors=True)
         if src_module.exists():
             shutil.copytree(src_module, dest_module)
 
@@ -353,7 +352,7 @@ def create_calendar_lambda(
         Lambda function resource
     """
     # Create CloudWatch log group
-    log_group = aws.cloudwatch.LogGroup(
+    _log_group = aws.cloudwatch.LogGroup(
         f"exec-assistant-calendar-lambda-logs-{environment}",
         name=f"/aws/lambda/exec-assistant-calendar-{environment}",
         retention_in_days=7 if environment == "dev" else 30,
@@ -391,7 +390,7 @@ def create_calendar_lambda(
         src_module = src_dir / module
         dest_module = package_dir / "exec_assistant" / module
         if dest_module.exists():
-            shutil.rmtree(dest_module)
+            shutil.rmtree(dest_module, ignore_errors=True)
         if src_module.exists():
             shutil.copytree(src_module, dest_module)
 
@@ -485,7 +484,7 @@ def create_agent_lambda(
         Lambda function resource
     """
     # Create CloudWatch log group
-    log_group = aws.cloudwatch.LogGroup(
+    _log_group = aws.cloudwatch.LogGroup(
         f"exec-assistant-agent-lambda-logs-{environment}",
         name=f"/aws/lambda/exec-assistant-agent-{environment}",
         retention_in_days=7 if environment == "dev" else 30,
@@ -515,7 +514,7 @@ def create_agent_lambda(
         src_module = src_dir / module
         dest_module = package_dir / "exec_assistant" / module
         if dest_module.exists():
-            shutil.rmtree(dest_module)
+            shutil.rmtree(dest_module, ignore_errors=True)
         if src_module.exists():
             shutil.copytree(src_module, dest_module)
 
@@ -683,7 +682,7 @@ def create_api_gateway(
         )
 
     # Create stage (auto-deploy)
-    stage = aws.apigatewayv2.Stage(
+    _stage = aws.apigatewayv2.Stage(
         f"exec-assistant-api-stage-{environment}",
         api_id=api.id,
         name="$default",
@@ -857,7 +856,7 @@ def create_auth_and_api_gateway(
     )
 
     # Step 5: Create stage (auto-deploy)
-    stage = aws.apigatewayv2.Stage(
+    _stage = aws.apigatewayv2.Stage(
         f"exec-assistant-api-stage-{environment}",
         api_id=api.id,
         name="$default",
@@ -907,7 +906,7 @@ def create_ui_bucket(environment: str) -> tuple[aws.s3.Bucket, str]:
     )
 
     # Bucket policy to allow public read (depends on public access block)
-    bucket_policy = aws.s3.BucketPolicy(
+    _bucket_policy = aws.s3.BucketPolicy(
         f"exec-assistant-ui-{environment}-policy",
         bucket=ui_bucket.id,
         policy=ui_bucket.arn.apply(

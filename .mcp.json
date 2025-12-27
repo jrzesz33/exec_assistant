@@ -1,17 +1,3 @@
 {
-  "mcpServers": {
-   "awslabs.ccapi-mcp-server": {
-      "command": "uvx",
-      "args": ["awslabs.ccapi-mcp-server@latest"],
-      "env": {
-        "AWS_REGION": "us-east-1",
-        "AWS_PROFILE": "ccaws",
-        "DEFAULT_TAGS": "enabled",
-        "SECURITY_SCANNING": "enabled",
-        "FASTMCP_LOG_LEVEL": "ERROR"
-      },
-      "disabled": false,
-      "autoApprove": []
-    }
-  }
+  "mcpServers": {}
 }
