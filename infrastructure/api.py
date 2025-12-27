@@ -136,8 +136,19 @@ def create_lambda_policy(
                             "secretsmanager:UpdateSecret",
                             "secretsmanager:DeleteSecret",
                             "secretsmanager:PutSecretValue",
+                            "secretsmanager:DescribeSecret",
                         ],
-                        "Resource": "*",  # Will narrow down in production
+                        "Resource": [
+                            "arn:aws:secretsmanager:*:*:secret:calendar-tokens-*",
+                            "arn:aws:secretsmanager:*:*:secret:exec-assistant-*",
+                        ],
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "events:PutEvents",
+                        ],
+                        "Resource": "arn:aws:events:*:*:event-bus/default",
                     },
                 ]
                 + (

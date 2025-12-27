@@ -181,9 +181,31 @@ elif enable_phase_1_5 and not PHASE_1_5_AVAILABLE:
 else:
     pulumi.log.info("Phase 1.5 disabled. Set enable_phase_1_5=true in config to deploy authentication and UI.")
 
+# Phase 3: Calendar Monitor (optional - enable via config)
+enable_calendar_monitor = config.get_bool("enable_calendar_monitor") or False
+
+if enable_calendar_monitor and enable_phase_1_5 and PHASE_1_5_AVAILABLE:
+    pulumi.log.info("Deploying Phase 3: Calendar Monitor Infrastructure")
+
+    from calendar_monitor import create_calendar_monitor_infrastructure
+
+    # Create calendar monitor Lambda and EventBridge rule
+    calendar_monitor_lambda, calendar_monitor_rule = create_calendar_monitor_infrastructure(
+        environment, lambda_role, tables["users"], tables["meetings"], config
+    )
+
+    pulumi.export("calendar_monitor_lambda_arn", calendar_monitor_lambda.arn)
+    pulumi.export("calendar_monitor_lambda_name", calendar_monitor_lambda.name)
+    pulumi.export("calendar_monitor_rule_arn", calendar_monitor_rule.arn)
+
+    pulumi.log.info("Phase 3: Calendar monitor deployed - runs every 2 hours")
+elif enable_calendar_monitor and not (enable_phase_1_5 and PHASE_1_5_AVAILABLE):
+    pulumi.log.warn("Calendar monitor enabled but requires Phase 1.5. Enable phase_1_5=true first.")
+else:
+    pulumi.log.info("Calendar monitor disabled. Set enable_calendar_monitor=true to deploy.")
+
 # Future phases will add:
-# - Phase 3: Step Functions for meeting prep workflow
-# - Phase 4: EventBridge rules for calendar monitoring
+# - Phase 4: Step Functions for meeting prep workflow
 # - Phase 5: Additional agents (Budget, HR, Incident managers)
 # - Phase 6: CloudWatch alarms and dashboards
 # - Phase 7: VPC and enhanced security
