@@ -86,6 +86,65 @@ class TestMeeting:
         assert item["start_time"] == "2025-02-01T09:00:00+00:00"
         assert item["meeting_type"] == "one_on_one"
 
+    def test_meeting_with_notification_fields(self) -> None:
+        """Test meeting with notification tracking fields."""
+        notification_time = datetime(2025, 2, 1, 8, 0, tzinfo=UTC)
+        meeting = Meeting(
+            meeting_id="meeting-notif",
+            user_id="U12345",
+            title="Meeting with Notification",
+            start_time=datetime(2025, 2, 1, 14, 0, tzinfo=UTC),
+            end_time=datetime(2025, 2, 1, 15, 0, tzinfo=UTC),
+            notification_id="ts_1234567890.123456",
+            notification_sent_at=notification_time,
+        )
+
+        assert meeting.notification_id == "ts_1234567890.123456"
+        assert meeting.notification_sent_at == notification_time
+
+    def test_meeting_notification_fields_to_dynamodb(self) -> None:
+        """Test that notification fields serialize to DynamoDB correctly."""
+        notification_time = datetime(2025, 2, 1, 8, 0, tzinfo=UTC)
+        meeting = Meeting(
+            meeting_id="meeting-notif-db",
+            user_id="U12345",
+            title="Test Notification Serialization",
+            start_time=datetime(2025, 2, 1, 14, 0, tzinfo=UTC),
+            end_time=datetime(2025, 2, 1, 15, 0, tzinfo=UTC),
+            notification_id="ts_9876543210.654321",
+            notification_sent_at=notification_time,
+        )
+
+        item = meeting.to_dynamodb()
+
+        assert item["notification_id"] == "ts_9876543210.654321"
+        assert isinstance(item["notification_sent_at"], str)
+        assert item["notification_sent_at"] == "2025-02-01T08:00:00+00:00"
+
+    def test_meeting_notification_fields_from_dynamodb(self) -> None:
+        """Test that notification fields deserialize from DynamoDB correctly."""
+        item = {
+            "meeting_id": "meeting-notif-restore",
+            "user_id": "U67890",
+            "title": "Restored Meeting with Notification",
+            "start_time": "2025-03-01T14:00:00+00:00",
+            "end_time": "2025-03-01T15:00:00+00:00",
+            "meeting_type": "one_on_one",
+            "status": "prep_scheduled",
+            "notification_id": "SM123456789",
+            "notification_sent_at": "2025-03-01T08:00:00+00:00",
+            "attendees": [],
+            "created_at": "2025-02-28T10:00:00+00:00",
+            "updated_at": "2025-03-01T08:00:00+00:00",
+        }
+
+        meeting = Meeting.from_dynamodb(item)
+
+        assert meeting.notification_id == "SM123456789"
+        assert isinstance(meeting.notification_sent_at, datetime)
+        assert meeting.notification_sent_at.tzinfo is not None
+        assert meeting.notification_sent_at == datetime(2025, 3, 1, 8, 0, tzinfo=UTC)
+
     def test_meeting_from_dynamodb(self) -> None:
         """Test deserializing meeting from DynamoDB format."""
         item = {

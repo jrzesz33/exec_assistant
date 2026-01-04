@@ -98,6 +98,14 @@ class Meeting(BaseModel):
     chat_session_id: str | None = Field(None, description="Associated chat session for prep")
     materials_s3_key: str | None = Field(None, description="S3 key for generated materials")
 
+    # Notification tracking
+    notification_id: str | None = Field(
+        None, description="Message ID from notification service (Slack ts, Twilio SID, or SES MessageId)"
+    )
+    notification_sent_at: datetime | None = Field(
+        None, description="When prep notification was sent"
+    )
+
     # Metadata
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -123,6 +131,7 @@ class Meeting(BaseModel):
             "updated_at",
             "last_synced_at",
             "prep_trigger_time",
+            "notification_sent_at",
         ]:
             if data.get(field):
                 data[field] = data[field].isoformat()
@@ -139,6 +148,7 @@ class Meeting(BaseModel):
             "updated_at",
             "last_synced_at",
             "prep_trigger_time",
+            "notification_sent_at",
         ]:
             if item.get(field):
                 item[field] = datetime.fromisoformat(item[field])
@@ -431,6 +441,12 @@ class User(BaseModel):
     calendar_last_sync: datetime | None = Field(
         None,
         description="Last time calendar was synced",
+    )
+
+    # Contact information
+    phone_number: str | None = Field(
+        None,
+        description="User's phone number for SMS notifications (E.164 format: +1234567890)",
     )
 
     # User preferences
