@@ -181,11 +181,11 @@ elif enable_phase_1_5 and not PHASE_1_5_AVAILABLE:
 else:
     pulumi.log.info("Phase 1.5 disabled. Set enable_phase_1_5=true in config to deploy authentication and UI.")
 
-# Phase 3: Calendar Monitor (optional - enable via config)
+# Phase 3 Sprint 2: Calendar Monitor (optional - enable via config)
 enable_calendar_monitor = config.get_bool("enable_calendar_monitor") or False
 
 if enable_calendar_monitor and enable_phase_1_5 and PHASE_1_5_AVAILABLE:
-    pulumi.log.info("Deploying Phase 3: Calendar Monitor Infrastructure")
+    pulumi.log.info("Deploying Phase 3 Sprint 2: Calendar Monitor Infrastructure")
 
     from calendar_monitor import create_calendar_monitor_infrastructure
 
@@ -198,11 +198,46 @@ if enable_calendar_monitor and enable_phase_1_5 and PHASE_1_5_AVAILABLE:
     pulumi.export("calendar_monitor_lambda_name", calendar_monitor_lambda.name)
     pulumi.export("calendar_monitor_rule_arn", calendar_monitor_rule.arn)
 
-    pulumi.log.info("Phase 3: Calendar monitor deployed - runs every 2 hours")
+    pulumi.log.info("Phase 3 Sprint 2: Calendar monitor deployed - runs every 2 hours")
 elif enable_calendar_monitor and not (enable_phase_1_5 and PHASE_1_5_AVAILABLE):
     pulumi.log.warn("Calendar monitor enabled but requires Phase 1.5. Enable phase_1_5=true first.")
 else:
     pulumi.log.info("Calendar monitor disabled. Set enable_calendar_monitor=true to deploy.")
+
+# Phase 3 Sprint 3: Prep Notification Workflow (optional - enable via config)
+enable_prep_notification = config.get_bool("enable_prep_notification") or False
+
+if enable_prep_notification and enable_calendar_monitor and enable_phase_1_5 and PHASE_1_5_AVAILABLE:
+    pulumi.log.info("Deploying Phase 3 Sprint 3: Prep Notification Workflow")
+
+    from prep_notification import create_prep_notification_infrastructure
+
+    # Create prep trigger handler, EventBridge rule, and Slack bot
+    prep_trigger_lambda, prep_trigger_rule, slack_bot_lambda = create_prep_notification_infrastructure(
+        environment,
+        lambda_role,
+        tables["users"],
+        tables["meetings"],
+        tables["chat_sessions"],
+        api,
+        config,
+    )
+
+    pulumi.export("prep_trigger_lambda_arn", prep_trigger_lambda.arn)
+    pulumi.export("prep_trigger_lambda_name", prep_trigger_lambda.name)
+    pulumi.export("prep_trigger_rule_arn", prep_trigger_rule.arn)
+    pulumi.export("slack_bot_lambda_arn", slack_bot_lambda.arn)
+    pulumi.export("slack_bot_lambda_name", slack_bot_lambda.name)
+
+    # Export Slack webhook URL for configuration
+    slack_webhook_url = api_endpoint.apply(lambda endpoint: f"{endpoint}/slack/webhook")
+    pulumi.export("slack_webhook_url", slack_webhook_url)
+
+    pulumi.log.info("Phase 3 Sprint 3: Prep notification workflow deployed")
+elif enable_prep_notification and not (enable_calendar_monitor and enable_phase_1_5 and PHASE_1_5_AVAILABLE):
+    pulumi.log.warn("Prep notification enabled but requires calendar monitor and Phase 1.5. Enable both first.")
+else:
+    pulumi.log.info("Prep notification disabled. Set enable_prep_notification=true to deploy.")
 
 # Future phases will add:
 # - Phase 4: Step Functions for meeting prep workflow
